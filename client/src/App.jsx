@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Report from "./Report.jsx";
+const API_BASE = import.meta.env.BACKEND_API_URL;
+
 // Listen for injected audit data when generating PDF
 // --- For Puppeteer PDF rendering ---
 if (typeof window !== "undefined") {
@@ -28,7 +30,7 @@ export default function App(){
     e.preventDefault();
     setErr(""); setData(null); setLoading(true);
     try{
-      const r = await fetch("/api/audit", {
+      const r = await fetch(`${API_BASE}/api/audit`, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body:JSON.stringify({ url, email })
@@ -43,7 +45,7 @@ export default function App(){
 
   async function exportPdf(){
     if(!data) return;
-    const r = await fetch("/api/audit/pdf", {
+    const r = await fetch(`${API_BASE}/api/audit/pdf`, {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body:JSON.stringify({ payload: data })
