@@ -4,11 +4,13 @@ import path from "path";
 import bodyParser from "body-parser";
 import { fileURLToPath } from "url";
 import cors from "cors";
-import { auditSite } from "./audit/utils.js";
-import { renderPdf } from "./audit/pdf.js";
+
+// Import audit and PDF functions from the 'audit' folder
+import { auditSite } from "./audit/utils.js";  // Audit logic
+import { renderPdf } from "./audit/pdf.js";    // PDF generation logic
 
 // Use process.env to get environment variables for backend and frontend URLs
-const FRONTEND_BASE = process.env.FRONTEND_URL;  // Use process.env for backend environment variables
+const FRONTEND_BASE = process.env.FRONTEND_URL;  // Get FRONTEND_URL from environment variable
 
 // Initialize Express app
 const app = express();
@@ -23,6 +25,10 @@ app.use(cors({
 // Use bodyParser to parse incoming requests with JSON payload
 app.use(bodyParser.json({ limit: "1mb" }));
 
+// Get the directory name from the current module URL (for ES Modules)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // --- SAFE /api/audit route ---
 app.post("/api/audit", async (req, res) => {
   try {
@@ -33,13 +39,14 @@ app.post("/api/audit", async (req, res) => {
 
     console.log(`[AUDIT] Starting audit for: ${url}`);
     
-    // Call audit function and handle errors
+    // Run the SEO audit using the auditSite function, which is assumed to be imported from 'audit/utils.js'
     const result = await auditSite(url).catch(err => {
       console.error("[AUDIT] auditSite() error:", err.message);
       if (err.stack) console.error(err.stack);
-      return null; // return null to still respond cleanly
+      return null;  // In case of an error in auditSite(), return null to avoid crashing the server
     });
 
+    // If auditSite failed (no result), return a failure response
     if (!result) {
       console.log("[AUDIT] Returning clean failure JSON.");
       return res.status(500).json({
@@ -58,6 +65,7 @@ app.post("/api/audit", async (req, res) => {
     return res.json({ ok: true, result });
 
   } catch (err) {
+    // Catch any other errors that may occur
     console.error("[AUDIT] Fatal error:", err);
     return res.status(500).json({
       ok: false,
@@ -74,7 +82,7 @@ app.post("/api/audit/pdf", async (req, res) => {
 
     console.log("[PDF] Generating report...");
     
-    // Generate PDF from the provided payload
+    // Generate the PDF using the renderPdf function (assumed to be imported from 'audit/pdf.js')
     const buffer = await renderPdf(payload);
     if (!buffer?.length) throw new Error("Empty PDF buffer");
 
@@ -84,6 +92,7 @@ app.post("/api/audit/pdf", async (req, res) => {
 
     console.log("[PDF] PDF successfully generated and sent.");
   } catch (err) {
+    // Catch any errors that occur during PDF generation
     console.error("[PDF] Error:", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
