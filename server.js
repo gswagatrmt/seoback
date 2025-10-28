@@ -17,7 +17,7 @@ const app = express();
 
 // CORS setup to allow frontend communication from the specified origin
 app.use(cors({
-  origin: FRONTEND_BASE,  // Set the frontend URL dynamically from environment variable
+  origin: `${FRONTEND_BASE}`,  // Set the frontend URL dynamically from environment variable
   methods: ["GET", "POST"],
   allowedHeaders: ["Content-Type"]
 }));
