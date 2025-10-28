@@ -25,6 +25,7 @@ export default function App(){
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
+console.log("API Base URL:", API_BASE);
 
   async function runAudit(e){
     e.preventDefault();
