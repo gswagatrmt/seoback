@@ -5,10 +5,14 @@ import bodyParser from "body-parser";
 import { fileURLToPath } from "url";
 import { auditSite } from "./audit/utils.js";
 import { renderPdf } from "./audit/pdf.js";
-const cors = require('cors');
-//for frontend communication
-app.use(cors());
-app.use(bodyParser.json());
+const FRONTEND_BASE = import.meta.env.FRONTEND_URL;
+import cors from "cors";
+app.use(cors({
+  origin: `${FRONTEND_BASE}`, // frontend URL
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"]
+}));
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
