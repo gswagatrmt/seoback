@@ -11,7 +11,7 @@ import { renderPdf } from "./audit/pdf.js";    // PDF generation logic
 
 // Use process.env to get environment variables for backend and frontend URLs
 const FRONTEND_BASE = process.env.FRONTEND_URL;  // Get FRONTEND_URL from environment variable
-
+console.log("API Base URL:", FRONTEND_BASE);
 // Initialize Express app
 const app = express();
 
