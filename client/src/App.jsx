@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Report from "./Report.jsx";
-const API_BASE = import.meta.env.BACKEND_API_URL;
+const API_BASE = "https://seoback-g4ci.onrender.com/";
 
 // Listen for injected audit data when generating PDF
 // --- For Puppeteer PDF rendering ---
