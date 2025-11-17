@@ -15,11 +15,11 @@ async function getBrowser() {
   if (browserInstance) return browserInstance;
 
   // Define the path to Chromium for Render.com environment
-  const chromiumPath = process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser'; // Default path for Render
+  const chromiumPath = process.env.CHROMIUM_PATH || puppeteer.executablePath();  // Default Puppeteer path or Render path
 
   browserInstance = await puppeteer.launch({
     headless: true,
-    executablePath: chromiumPath,  // Point to the Chromium executable in Render
+    executablePath: chromiumPath,  // Fallback to Puppeteer's bundled Chromium binary if not in Render
     args: [
       '--no-sandbox',                  // Required for headless environments like Render
       '--disable-setuid-sandbox',      // Disable setuid sandbox
@@ -55,7 +55,7 @@ async function captureScreens(url) {
     try {
       await desktopPage.goto(desktopUrl, {
         waitUntil: "networkidle2",
-        timeout: 45000,
+        timeout: 45000,  // 45s for slower sites
       });
       await new Promise(res => setTimeout(res, 1200)); // allow render
       const image = await desktopPage.screenshot({
