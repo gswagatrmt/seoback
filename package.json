@@ -17,21 +17,17 @@
     "cross-env": "^7.0.3",
     "dotenv": "^17.2.3",
     "express": "^4.19.2",
-    "cors": "^2.8.5",
     "got": "^14.4.1",
-    "html-pdf-node": "^1.0.8",
     "iconv-lite": "^0.6.3",
     "isomorphic-dompurify": "^2.13.0",
     "lucide-react": "^0.546.0",
     "mime-types": "^2.1.35",
-    "pdf-creator-node": "^2.3.5",
-    "pdfkit": "^0.17.2",
     "punycode": "^2.3.1",
     "puppeteer": "^24.30.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "url-parse": "^1.5.10",
     "user-agents": "^1.1.331",
-    "vite": "^5.4.10"
+    "vite": "^7.2.2"
   }
 }
