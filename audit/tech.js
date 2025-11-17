@@ -57,7 +57,7 @@ async function checkBrokenLinks(base) {
 
   // Treat 200–399 as valid, ignore 403/429 false negatives
   const broken = checked.filter(
-    (r) => r.status === 0 || (r.status >= 400 && r.status < 600 && r.status !== 403 && r.status !== 429)
+    (r) => r.status === 0 || (r.status >= 400 && r.status < 500 && r.status !== 403 && r.status !== 429)
   );
 
   return {
