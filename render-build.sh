@@ -12,9 +12,18 @@ if [[ ! -d $STORAGE_DIR/chrome ]]; then
   dpkg -x ./google-chrome-stable_current_amd64.deb $STORAGE_DIR/chrome
   rm ./google-chrome-stable_current_amd64.deb
   cd $HOME/project/src # Make sure we return to where we were
+
+  # Check if the binary exists after installation
+  if [[ -f $STORAGE_DIR/chrome/opt/google/chrome/chrome ]]; then
+    echo "...Chrome successfully installed."
+  else
+    echo "...Error: Chrome binary not found!"
+    exit 1
+  fi
 else
   echo "...Using Chrome from cache"
 fi
 
-# Set Chrome path for Puppeteer to use (optional)
-export PATH="${PATH}:/opt/render/project/.render/chrome/opt/google/chrome"
+# Set Chrome path for Puppeteer to use
+export CHROMIUM_PATH="$STORAGE_DIR/chrome/opt/google/chrome/chrome"
+export PATH="${PATH}:$STORAGE_DIR/chrome/opt/google/chrome"
