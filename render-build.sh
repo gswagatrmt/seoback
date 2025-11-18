@@ -33,5 +33,4 @@ else
 fi
 
 # Set Chrome path for Puppeteer to use
-export CHROMIUM_PATH="$STORAGE_DIR/chrome/opt/google/chrome/chrome"
 export PATH="${PATH}:$STORAGE_DIR/chrome/opt/google/chrome"
