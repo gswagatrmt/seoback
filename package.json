@@ -6,7 +6,7 @@
     "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "cross-env NODE_ENV=development node server.js",
     "dev:client": "vite",
-    "build": "vite build",
+    "build": "npm run postinstall && vite build",
     "start": "node server.js",
     "postinstall": "apt-get update && apt-get install -y libnss3 libatk-bridge2.0-0 libxss1 libgbm-dev chromium && npm install"
   },
