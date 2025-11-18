@@ -20,6 +20,10 @@ if [[ ! -d $STORAGE_DIR/chrome ]]; then
     echo "...Error: Chrome binary not found!"
     exit 1
   fi
+
+  # Set the correct permissions to allow execution of the Chrome binary
+  chmod +x $STORAGE_DIR/chrome/opt/google/chrome/chrome
+
 else
   echo "...Using Chrome from cache"
 fi
