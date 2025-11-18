@@ -6,7 +6,7 @@
     "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "cross-env NODE_ENV=development node server.js",
     "dev:client": "vite",
-    "build": "sh render-build.sh && vite build",
+    "build": "bash render-build.sh && vite build",
     "start": "node server.js"
   },
   "dependencies": {
