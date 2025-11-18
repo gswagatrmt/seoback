@@ -21,8 +21,12 @@ if [[ ! -d $STORAGE_DIR/chrome ]]; then
     exit 1
   fi
 
-  # Set the correct permissions to allow execution of the Chrome binary
+  # Fix permissions: make the Chrome binary executable
   chmod +x $STORAGE_DIR/chrome/opt/google/chrome/chrome
+
+  # Debugging: Check the permissions of the Chrome binary
+  echo "Checking permissions of the Chrome binary:"
+  ls -l $STORAGE_DIR/chrome/opt/google/chrome/chrome
 
 else
   echo "...Using Chrome from cache"
