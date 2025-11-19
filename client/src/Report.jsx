@@ -312,7 +312,6 @@ export default function Report({ data }) {
                 justifyContent: "center",
                 alignItems: "flex-start",
                 margin: "0 auto",
-                maxHeight:"380px",
                 maxWidth: "205px",     // ✅ ensures it never looks oversized
               }}
             >
