@@ -1135,17 +1135,6 @@ export default function Report({ data }) {
           <p className="note">HTTP/2 improves multiplexing and latency.</p>
         </div>
 
-        <div className="element-block">
-          <div className="element-header">
-            <strong>JavaScript Errors</strong>
-            <Check ok={pe.jsErrors === 0} />
-          </div>
-          <p>{pe.jsErrors} JavaScript errors detected.</p>
-          <p className="note">
-            JS errors can block rendering or break UI features; resolve console errors.
-          </p>
-        </div>
-
         {pe.pageSpeedInsights && (
           <div className="element-block">
             <div className="element-header">
