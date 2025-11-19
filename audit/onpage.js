@@ -128,12 +128,12 @@ const headings = {
     title: {
       value: title,
       length: title.length,
-      ok: title.length >= 50 && title.length <= 60
+      ok: title.length >= 40 && title.length <= 60
     },
     metaDescription: {
       value: metaDesc,
       length: metaDesc.length,
-      ok: metaDesc.length >= 120 && metaDesc.length <= 160
+      ok: metaDesc.length >= 130 && metaDesc.length <= 160
     },
     headingUsage: { h1Present: allH1.length > 0, h1Values: allH1, levels: headings },
     keywordConsistency, // <-- full keyword/phrase analysis
