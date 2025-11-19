@@ -289,7 +289,7 @@ export default function Report({ data }) {
           {/* Mobile */}
           <div
             style={{
-              flex: "1 1 280px",
+              flex: "1 1 250px",
               maxWidth: "100%",// ✅ keep compact width
               width: "100%",
               textAlign: "center",
@@ -338,8 +338,8 @@ export default function Report({ data }) {
           {/* Desktop */}
           <div
             style={{
-              flex: "1 1 520px",
-              minWidth: "280px",
+              flex: "1 1 480px",
+              minWidth: "250px",
               maxWidth: "100%",
               textAlign: "center",
               boxSizing: "border-box",
