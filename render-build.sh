@@ -1,36 +1,30 @@
 #!/bin/bash
-# exit on error
 set -o errexit
 
-STORAGE_DIR=/opt/render/project/.render
+# Universal Chrome install directory
+CHROME_DIR=${CHROME_DIR:-/tmp/chrome}
 
-if [[ ! -d $STORAGE_DIR/chrome ]]; then
-  echo "...Downloading Chrome"
-  mkdir -p $STORAGE_DIR/chrome
-  cd $STORAGE_DIR/chrome
-  wget -P ./ https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-  dpkg -x ./google-chrome-stable_current_amd64.deb $STORAGE_DIR/chrome
-  rm ./google-chrome-stable_current_amd64.deb
-  cd $HOME/project/src # Make sure we return to where we were
+if [[ ! -d "$CHROME_DIR/opt/google/chrome" ]]; then
+  echo "Downloading Google Chrome..."
+  mkdir -p "$CHROME_DIR"
+  cd "$CHROME_DIR"
 
-  # Check if the binary exists after installation
-  if [[ -f $STORAGE_DIR/chrome/opt/google/chrome/chrome ]]; then
-    echo "...Chrome successfully installed."
-  else
-    echo "...Error: Chrome binary not found!"
-    exit 1
-  fi
+  # Download stable Chrome
+  wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 
-  # Fix permissions: make the Chrome binary executable
-  chmod +x $STORAGE_DIR/chrome/opt/google/chrome/chrome
+  # Extract Chrome without requiring sudo
+  dpkg -x google-chrome-stable_current_amd64.deb "$CHROME_DIR"
 
-  # Debugging: Check the permissions of the Chrome binary
-  echo "Checking permissions of the Chrome binary:"
-  ls -l $STORAGE_DIR/chrome/opt/google/chrome/chrome
+  rm google-chrome-stable_current_amd64.deb
 
+  chmod +x "$CHROME_DIR/opt/google/chrome/chrome"
+  echo "Chrome installed at $CHROME_DIR/opt/google/chrome/chrome"
 else
-  echo "...Using Chrome from cache"
+  echo "Using cached Chrome at $CHROME_DIR"
 fi
 
-# Set Chrome path for Puppeteer to use
-export PATH="${PATH}:$STORAGE_DIR/chrome/opt/google/chrome"
+# Export the Puppeteer Chrome path
+export CHROMIUM_PATH="$CHROME_DIR/opt/google/chrome/chrome"
+export PATH="$PATH:$CHROME_DIR/opt/google/chrome"
+
+echo "Chrome path set!"
