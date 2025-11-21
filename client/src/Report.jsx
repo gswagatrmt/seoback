@@ -407,7 +407,7 @@ export default function Report({ data }) {
           On-Page SEO Results
         </div>
 
-        <div style={{ ...centerRow, marginBottom: 16 }}>
+        <div class="center-row" style={{ ...centerRow, marginBottom: 14 }}>
           {(() => {
             const intro = getSectionIntro("On-Page SEO", grades.onpage.score);
             return (
@@ -699,7 +699,7 @@ export default function Report({ data }) {
           Technical Results
         </div>
 
-        <div style={{ ...centerRow, marginBottom: 16 }}>
+        <div class="center-row" style={{ ...centerRow, marginBottom: 14 }}>
           {(() => {
             const intro = getSectionIntro("Technical & Local", grades.techlocal.score);
             return (
@@ -1071,7 +1071,7 @@ export default function Report({ data }) {
           Performance Results
         </div>
 
-        <div style={{ ...centerRow, marginBottom: 16 }}>
+        <div class="center-row" style={{ ...centerRow, marginBottom: 14 }}>
           {(() => {
             const intro = getSectionIntro("Performance", grades.performance.score);
             return (
@@ -1328,7 +1328,7 @@ export default function Report({ data }) {
           Social Results
         </div>
 
-        <div style={{ ...centerRow, marginBottom: 16 }}>
+        <div class="center-row" style={{ ...centerRow, marginBottom: 14 }}>
           {(() => {
             const intro = getSectionIntro("Social", grades.social.score);
             return (
