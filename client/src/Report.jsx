@@ -274,7 +274,7 @@ export default function Report({ data }) {
 
       {/* ===== Device Rendering View (balanced & fixed) ===== */}
       <div className="card">
-        <h2>Device Rendering View</h2>
+        <h2>Device Preview</h2>
 
         <div
           style={{
@@ -696,7 +696,7 @@ export default function Report({ data }) {
           className="section-title"
           style={{ background: scoreColor(grades.techlocal.score) }}
         >
-          Technical Results
+          Technical SEO Results
         </div>
 
         <div class="center-row" style={{ ...centerRow, marginBottom: 14 }}>
