@@ -175,7 +175,7 @@ export default function Report({ data }) {
     display: "flex",
     alignItems: "center",
     gap: 16,
-    flexWrap: "wrap",
+    flexWrap: "wrap"
   };
   const tableWrap = { width: "100%", overflowX: "auto" };
 
@@ -208,7 +208,7 @@ export default function Report({ data }) {
           size={140}
         />
       </div>
-
+  <div className="gauge-container">
       <div
         style={{
           display: "flex",
@@ -245,11 +245,12 @@ export default function Report({ data }) {
         />
       </div>
     </div>
-
+</div>
     <div className="label" style={{ marginTop: 16 }}>
       Fetched: {new Date(meta.fetchedAt).toLocaleString()}
     </div>
   </div>
+
 
   {/* === Coverage Card (same visual balance) === */}
   <div className="card">
@@ -290,7 +291,7 @@ export default function Report({ data }) {
           <div
             style={{
               flex: "1 1 250px",
-              maxWidth: "100%",// ✅ keep compact width
+              maxWidth: "100%",//  keep compact width
               width: "100%",
               textAlign: "center",
               boxSizing: "border-box",
@@ -298,7 +299,7 @@ export default function Report({ data }) {
             }}
           >
             <h4 style={{ marginBottom: 8, color: "#374151" }}>Mobile View</h4>
-            <div
+            <div 
               style={{
                 width: "100%",
                 height: "auto",
@@ -312,6 +313,7 @@ export default function Report({ data }) {
                 justifyContent: "center",
                 alignItems: "flex-start",
                 margin: "0 auto",
+                maxHeight:"380px",
                 maxWidth: "205px",     // ✅ ensures it never looks oversized
               }}
             >
@@ -407,7 +409,7 @@ export default function Report({ data }) {
           On-Page SEO Results
         </div>
 
-        <div class="center-row" style={{ ...centerRow, marginBottom: 14 }}>
+       <div class="center-row" style={{ ...centerRow, marginBottom: 12 }}>
           {(() => {
             const intro = getSectionIntro("On-Page SEO", grades.onpage.score);
             return (
@@ -699,7 +701,7 @@ export default function Report({ data }) {
           Technical SEO Results
         </div>
 
-        <div class="center-row" style={{ ...centerRow, marginBottom: 14 }}>
+       <div class="center-row" style={{ ...centerRow, marginBottom: 12 }}>
           {(() => {
             const intro = getSectionIntro("Technical & Local", grades.techlocal.score);
             return (
@@ -1025,11 +1027,22 @@ export default function Report({ data }) {
             <strong>Schema.org Structured Data</strong>
             <Check ok={te.schemaOrg.present} />
           </div>
-          <p>
-            {te.schemaOrg.present
-              ? "Schema.org structured data found on the site."
-              : "No Schema.org structured data detected."}
-          </p>
+         
+           {te.schemaOrg.present ? (
+  te.schemaOrg.optimised ? (
+    <p>
+      Schema.org structured data found and optimized on the site.
+    </p>
+  ) : (
+    <p>
+      Schema.org structured data found but needs optimization.
+    </p>
+  )
+) : (
+  <p>
+    No Schema.org structured data detected.
+  </p>
+)}
           <p className="note">
             Structured data helps search engines better understand your business information.
           </p>
@@ -1071,7 +1084,7 @@ export default function Report({ data }) {
           Performance Results
         </div>
 
-        <div class="center-row" style={{ ...centerRow, marginBottom: 14 }}>
+       <div class="center-row" style={{ ...centerRow, marginBottom: 12 }}>
           {(() => {
             const intro = getSectionIntro("Performance", grades.performance.score);
             return (
@@ -1328,7 +1341,7 @@ export default function Report({ data }) {
           Social Results
         </div>
 
-        <div class="center-row" style={{ ...centerRow, marginBottom: 14 }}>
+       <div class="center-row" style={{ ...centerRow, marginBottom: 12 }}>
           {(() => {
             const intro = getSectionIntro("Social", grades.social.score);
             return (
