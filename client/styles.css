@@ -91,7 +91,7 @@ body {
 
   .grid-2,
   .grid-3 {
-    grid-template-columns: 1fr 
+    grid-template-columns: 1fr
   }
 }
 
@@ -163,7 +163,7 @@ label {
   margin-top: 16px;
 }
 
-@media (max-width:900px) {
+@media  (max-width:900px) {
   .kpis {
     grid-template-columns: repeat(2, 1fr)
   }
@@ -803,8 +803,8 @@ main,
 }
 
 /* Maintain even padding and alignment for stacked layout (small devices) */
-/* Maintain even padding and alignment for stacked layout (small devices) */
 @media (max-width: 517px) {
+  
   .card {
     padding: 14px 10px;
     margin-right: 100px;
@@ -853,7 +853,9 @@ main,
     font-size: 0.85rem;
     text-align: center;
   }
+
 }
+
 /* Keep all cards separated by equal space */
 .card+.card {
   margin-top: 20px;
@@ -868,20 +870,6 @@ canvas {
   margin: 0 auto;
 }
 
-.audit-summary-container {
-  width: 100%;
-  max-width: 1200px;
-  /* same bounding width as main sections */
-  margin: 0 auto;
-  padding: 0 12px;
-  /* identical horizontal padding */
-  box-sizing: border-box;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  /* ensure cards stretch to edges evenly */
-  gap: 20px;
-}
 
 /* Keep both cards equal width and aligned with other sections */
 .audit-summary-container .card {
@@ -927,7 +915,8 @@ canvas {
   max-width: 1100px;
   margin: 0 auto;
   padding-left: 12px;
-  padding-right: 12px;        /* ✅ balanced padding */
+  padding-right: 12px;
+  /* ✅ balanced padding */
   box-sizing: border-box;
 }
 
@@ -937,7 +926,8 @@ canvas {
   max-width: 1200px;
   margin: 0 auto;
   padding-left: 12px;
-  padding-right: 12px;        /* ✅ symmetrical edge padding */
+  padding-right: 12px;
+  /* ✅ symmetrical edge padding */
   box-sizing: border-box;
 }
 
@@ -948,6 +938,9 @@ canvas {
   margin-left: 0;
   margin-right: 0;
 }
+.audit-summary-container h2 {
+  word-break: break-word;
+}
 
 /* Gauges stay centered */
 .audit-summary-container svg[role="img"] {
@@ -955,7 +948,7 @@ canvas {
   max-width: 130px;
   height: auto;
   margin-left: auto;
-  margin-right: auto;         /* ✅ true centering inside flex */
+  margin-right: auto;
 }
 
 /* === Desktop (≥901px) === */
@@ -972,7 +965,39 @@ canvas {
     justify-content: center;
     gap: 16px;
     padding-left: 10px;
-    padding-right: 10px;      /* ✅ equal on both sides */
+    padding-right: 10px;
+    /* ✅ equal on both sides */
+  }
+
+  .audit-summary-container .card {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+
+  .audit-summary-container svg[role="img"] {
+    /* flex: 1 1 42%;
+    max-width: 42%; */
+
+     flex: 1 1 20%;
+    max-width: 140px;
+    margin: 0 auto;
+  }
+}
+
+@media (min-width: 413px) and (max-width: 536px) {
+  .gauge-container {
+    grid-template-columns: repeat(2, 1fr); /* Two gauges per row */
+    gap: 20px; /* Adjust the gap between gauges */
+  }
+}
+
+@media (max-width: 355px) {
+  .audit-summary-container {
+    justify-content: center;
+    gap: 16px;
+    padding-left: 10px;
+    padding-right: 10px;
+    /* ✅ equal on both sides */
   }
 
   .audit-summary-container .card {
@@ -982,7 +1007,8 @@ canvas {
 
   .audit-summary-container svg[role="img"] {
     flex: 1 1 42%;
-    max-width: 42%;
+    max-width: 42%; 
+
     margin: 0 auto;
   }
 }
