@@ -228,7 +228,7 @@ export default function Report({ data }) {
         <FullGauge
           score={grades.techlocal.score}
           letter={grades.techlocal.letter}
-          label="Technical"
+          label="Technical SEO"
           size={100}
         />
         <FullGauge
