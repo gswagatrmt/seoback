@@ -1155,3 +1155,47 @@ canvas {
   text-align: center; /* Center the text */
 }
 
+/* Progress Bar Styling */
+.progress-bar {
+  position: relative;  /* Position the text relative to the container */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--bs-progress-bar-color);
+  text-align: center;
+  white-space: nowrap;
+  background-color: var(--bs-progress-bar-bg);
+  transition: var(--bs-progress-bar-transition);
+  height: 100%; /* Full height of the container */
+  font-weight: bold; /* Make text bold */
+  color: white; /* Ensure text color is white */
+  z-index: 2; /* Ensure text is above the stripes */
+}
+
+/* Striped Effect for Progress Bar */
+.progress-bar-striped {
+  background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
+  background-size: 1rem 1rem; /* Adjust size of stripes */
+  position: absolute; /* Keep the stripes fixed behind the text */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* Smooth Animation for Stripes */
+.progress-bar-animated {
+  animation: progress-bar-stripes 2s linear infinite; /* Animation speed increased for smoother effect */
+}
+
+/* Keyframes for Stripe Animation */
+@keyframes progress-bar-stripes {
+  0% {
+    background-position: 1rem 0; /* Start from the right */
+  }
+  100% {
+    background-position: 0 0; /* Move to the left */
+  }
+}
+
+
