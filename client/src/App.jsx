@@ -10,7 +10,8 @@ export default function App() {
   const [err, setErr] = useState("");  // Store error messages
   const [progress, setProgress] = useState(0);  // Track progress for the progress bar
 
-async function runAudit(e) {
+
+  async function runAudit(e) {
   e.preventDefault();
 
   setErr("");
@@ -18,16 +19,9 @@ async function runAudit(e) {
   setLoading(true);
   setProgress(0);
 
-  // Initial slow rise – loading state (waiting for server to start returning)
-  let interval = setInterval(() => {
-    setProgress(prev => {
-      if (prev >= 20) return prev; 
-      return prev + 1;
-    });
-  }, 150);
-
   try {
-    const fetchStart = Date.now();
+    // Stage 1: Request started
+    setProgress(15);
 
     const r = await fetch(`${API_BASE}/api/audit`, {
       method: "POST",
@@ -35,32 +29,19 @@ async function runAudit(e) {
       body: JSON.stringify({ url, email })
     });
 
-    // API responded — speed up progress to 80%
-    clearInterval(interval);
-    interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 80) return prev;
-        return prev + 2;
-      });
-    }, 50);
+    // Stage 2: Waiting for server to finish audit
+    setProgress(50);
 
     const j = await r.json();
 
+    // Stage 3: Server responded
+    setProgress(75);
+
     if (!r.ok || !j.ok) throw new Error(j.error || "Audit failed");
 
-    // Final fast completion to 100%
-    clearInterval(interval);
-    interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return prev + 4;
-      });
-    }, 30);
+    // Stage 4: Done
+    setProgress(100);
 
-    // Delay for smooth UI
     setTimeout(() => {
       setData(j.result);
       setLoading(false);
@@ -68,12 +49,12 @@ async function runAudit(e) {
     }, 300);
 
   } catch (ex) {
-    clearInterval(interval);
     setErr(ex.message);
     setLoading(false);
+    setProgress(0);
   }
 }
-  
+
 
   return (
     <>
