@@ -11,7 +11,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);  // Track progress for the progress bar
 
 
-  async function runAudit(e) {
+async function runAudit(e) {
   e.preventDefault();
 
   setErr("");
@@ -19,27 +19,27 @@ export default function App() {
   setLoading(true);
   setProgress(0);
 
-  try {
-    // Stage 1: Request started
-    setProgress(15);
+  // Simulated slow smooth progress until response arrives
+  let interval = setInterval(() => {
+    setProgress(prev => {
+      if (prev >= 98) return prev;       // Stop at 98%
+      return prev + Math.random() * 2;   // Increase slowly & randomly
+    });
+  }, 800); // Slow ticking every 0.8s
 
+  try {
     const r = await fetch(`${API_BASE}/api/audit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, email })
     });
 
-    // Stage 2: Waiting for server to finish audit
-    setProgress(50);
-
     const j = await r.json();
-
-    // Stage 3: Server responded
-    setProgress(75);
 
     if (!r.ok || !j.ok) throw new Error(j.error || "Audit failed");
 
-    // Stage 4: Done
+    // API finished → push to 100%
+    clearInterval(interval);
     setProgress(100);
 
     setTimeout(() => {
@@ -49,11 +49,13 @@ export default function App() {
     }, 300);
 
   } catch (ex) {
+    clearInterval(interval);
     setErr(ex.message);
     setLoading(false);
     setProgress(0);
   }
 }
+
 
 
   return (
