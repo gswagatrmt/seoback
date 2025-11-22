@@ -1,111 +1,126 @@
 import { useState } from "react";
 import Report from "./Report.jsx";
-const API_BASE = "https://seoback-g4ci.onrender.com";
+const API_BASE = "https://seoback-g4ci.onrender.com"; // Your API Base URL
 
-// Listen for injected audit data when generating PDF
-// --- For Puppeteer PDF rendering ---
-if (typeof window !== "undefined") {
-  window.addEventListener("auditDataReady", (ev) => {
-    const data = ev.detail || window.auditPayload;
-    if (!data) return;
+export default function App() {
+  const [url, setUrl] = useState(""); // Website URL entered by user
+  const [email, setEmail] = useState(""); // User email (if needed)
+  const [loading, setLoading] = useState(false); // Loading indicator
+  const [data, setData] = useState(null); // Store audit data
+  const [err, setErr] = useState(""); // Store error messages
+  const [progress, setProgress] = useState(0); // Track progress for the progress bar
 
-    import("./Report.jsx").then(({ default: Report }) => {
-      import("react-dom/client").then(({ createRoot }) => {
-        const root = document.getElementById("root");
-        createRoot(root).render(<Report data={data} />);
+  async function runAudit(e) {
+    e.preventDefault(); // Prevent form submission refresh
+    setErr(""); // Reset error message
+    setData(null); // Reset previous data
+    setLoading(true); // Show loading indicator
+    setProgress(0); // Reset progress bar to 0
+
+    const domainPattern = /^(?!:\/\/)([a-zA-Z0-9-_]+\.)+[a-zA-Z]{2,}$/; // Regex for valid URL
+
+    if (!domainPattern.test(url)) {
+      setErr("Please enter a valid website URL.");
+      setLoading(false);
+      return;
+    }
+
+    let progressInterval;
+
+    try {
+      // Simulate progress while the API request is ongoing
+      progressInterval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(progressInterval); // Stop once progress reaches 100%
+            return 100;
+          }
+          return Math.min(prev + 5, 100); // Increment progress by 5% every 500ms
+        });
+      }, 500); // Update progress every 500ms
+
+      // Send POST request to backend for SEO audit
+      const response = await fetch(`${API_BASE}/api/audit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url, email }),
       });
-    });
-  });
-}
 
+      const result = await response.json();
 
-export default function App(){
-  const [url, setUrl] = useState("");
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState(null);
-  const [err, setErr] = useState("");
-console.log("API Base URL:", API_BASE);
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || "Audit failed");
+      }
 
-  async function runAudit(e){
-    e.preventDefault();
-    setErr(""); setData(null); setLoading(true);
-    try{
-      const r = await fetch(`${API_BASE}/api/audit`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify({ url, email })
-      });
-      const j = await r.json();
-      if(!r.ok || !j.ok) throw new Error(j.error || "Audit failed");
-      setData(j.result);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }catch(ex){ setErr(ex.message); }
-    setLoading(false);
-  }
-
-  async function exportPdf(){
-    if(!data) return;
-    const r = await fetch(`${API_BASE}/api/audit/pdf`, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({ payload: data })
-    });
-    if(!r.ok){ return alert("PDF failed"); }
-    const blob = await r.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "seo-audit.pdf";
-    a.click();
+      setData(result.result); // Store the result when the audit completes
+    } catch (error) {
+      setErr(error.message || "An error occurred.");
+    } finally {
+      setLoading(false); // Hide loading indicator once the request is finished
+      clearInterval(progressInterval); // Clear the progress interval
+    }
   }
 
   return (
     <>
       <div className="header">
         <div className="wrap">
-          <img src="/logo.png" alt="RankMeTop Logo"/>
+          <img src="/logo.png" alt="RankMeTop Logo" />
           <h1>RankMeTop SEO Audit Tool</h1>
         </div>
       </div>
 
       <div className="container">
         <div className="card card--accent">
-         <form onSubmit={runAudit} className="grid" style={{gridTemplateColumns:"1fr 2"}}>
-  <div>
-    <label htmlFor="audit-url">URL</label>
- <input
-   id="audit-url"
-      className="input mono"
-      placeholder="https://example.com"
-      value={url}
-      onChange={(e)=>setUrl(e.target.value)}
-      required
-    />
-  </div>
+          <form
+            onSubmit={runAudit}
+            className="grid"
+            style={{ gridTemplateColumns: "1fr 2" }}
+          >
+            <div>
+              <label htmlFor="audit-url">URL</label>
+              <input
+                id="audit-url"
+                className="input mono"
+                placeholder="https://example.com"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                required
+              />
+            </div>
 
-  <div style={{alignSelf:"end", display:"flex", gap:8}}>
-    <button type="submit" className="btn" aria-label="Run Audit">
-      {loading ? "Auditing…" : "Run Audit"}
-    </button>
-    {/* {data && (
-      <button type="button" className="btn btn--ghost" onClick={exportPdf}>
-        Download PDF
-      </button>
-    )} */}
-  </div>
-</form>
+            <div style={{ alignSelf: "end", display: "flex", gap: 8 }}>
+              <button
+                type="submit"
+                className="btn"
+                aria-label="Run Audit"
+                disabled={loading}
+              >
+                {loading ? "Auditing…" : "Run Audit"}
+              </button>
+            </div>
+          </form>
 
-{err && <div style={{color:"#DC2626", marginTop:8}}>{err}</div>}
+          {err && (
+            <div style={{ color: "#DC2626", marginTop: 8 }}>{err}</div>
+          )}
         </div>
-{loading && (
+
+        {loading && (
           <div className="loading-container">
-            <div className="loading-bar" style={{ width: `${progress}%` }}></div>
+            <div
+              className="loading-bar"
+              style={{ width: `${progress}%` }}
+            ></div>
             <div className="loading-text">{Math.round(progress)}% Complete</div>
           </div>
         )}
 
         {/* Show the result only when the progress reaches 100% */}
         {data && !loading && progress === 100 && <Report data={data} />}
+
         <div className="footer">&copy;2025 RankMeTop. All rights reserved.</div>
       </div>
     </>
