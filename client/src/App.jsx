@@ -10,7 +10,7 @@ export default function App() {
   const [err, setErr] = useState("");  // Store error messages
   const [progress, setProgress] = useState(0);  // Track progress for the progress bar
 
-  async function runAudit(e) {
+async function runAudit(e) {
   e.preventDefault();
 
   setErr("");
@@ -18,42 +18,62 @@ export default function App() {
   setLoading(true);
   setProgress(0);
 
-  // Start progress simulation
-  let progressInterval = setInterval(() => {
+  // Initial slow rise – loading state (waiting for server to start returning)
+  let interval = setInterval(() => {
     setProgress(prev => {
-      if (prev >= 95) return prev; // stop auto progress at 95% (API will push to 100)
-      return prev + 5;
+      if (prev >= 20) return prev; 
+      return prev + 1;
     });
-  }, 400);
+  }, 150);
 
   try {
+    const fetchStart = Date.now();
+
     const r = await fetch(`${API_BASE}/api/audit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, email })
     });
 
+    // API responded — speed up progress to 80%
+    clearInterval(interval);
+    interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 80) return prev;
+        return prev + 2;
+      });
+    }, 50);
+
     const j = await r.json();
+
     if (!r.ok || !j.ok) throw new Error(j.error || "Audit failed");
 
-    // API finished → instantly push progress to 100%
-    setProgress(100);
+    // Final fast completion to 100%
+    clearInterval(interval);
+    interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 4;
+      });
+    }, 30);
 
-    // Slight delay for UI smoothness
+    // Delay for smooth UI
     setTimeout(() => {
       setData(j.result);
       setLoading(false);
       window.scrollTo({ top: 0, behavior: "smooth" });
-    }, 150);
+    }, 300);
 
   } catch (ex) {
+    clearInterval(interval);
     setErr(ex.message);
     setLoading(false);
-  } finally {
-    clearInterval(progressInterval);
   }
 }
-
+  
 
   return (
     <>
