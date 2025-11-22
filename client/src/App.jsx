@@ -92,32 +92,14 @@ async function runAudit(e) {
           {err && <div style={{ color: "#DC2626", marginTop: 8 }}>{err}</div>}
         </div>
 
-        {/* Progress Bar */}
-           
-{loading && (
-  <div className="loading-container" style={{ marginTop: "20px" }}>
-    <div
-      className="progress-bar progress-bar-striped progress-bar-animated"
-      role="progressbar"
-      aria-valuenow={progress} // Set the value dynamically from state
-      aria-valuemin="0"
-      aria-valuemax="100"
-      style={{
-        width: `${progress}%`,
-        backgroundColor: '#1B84FF', // Blue color as per your CSS
-        height: '30px',              // Height of the progress bar
-        lineHeight: '28px',          // Line height for text centering
-        fontSize: '15px',            // Font size for the progress text
-        fontWeight: 'bold',          // Font weight for the text
-        letterSpacing: '2px',        // Letter spacing for the text
-        borderRadius: '4px',         // Border radius for smooth edges
-      }}
-    >
-      {Math.round(progress)}% Complete
-    </div>
-  </div>
-)}
-
+     
+     {/* Progress Bar */}
+        {loading && (
+          <div className="loading-container" style={{ marginTop: "20px" }}>
+            <div className="loading-bar" style={{ width: `${progress}%` }}></div>
+            <div className="loading-text">{Math.round(progress)}% Complete</div>
+          </div>
+        )}
 
         {/* Render the audit results */}
         {data && !loading && progress === 100 && <Report data={data} />}  {/* Show results after progress reaches 100% */}
