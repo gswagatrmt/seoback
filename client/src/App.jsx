@@ -97,8 +97,15 @@ console.log("API Base URL:", API_BASE);
 
 {err && <div style={{color:"#DC2626", marginTop:8}}>{err}</div>}
         </div>
+{loading && (
+          <div className="loading-container">
+            <div className="loading-bar" style={{ width: `${progress}%` }}></div>
+            <div className="loading-text">{Math.round(progress)}% Complete</div>
+          </div>
+        )}
 
-        {data && <Report data={data} />}
+        {/* Show the result only when the progress reaches 100% */}
+        {data && !loading && progress === 100 && <Report data={data} />}
         <div className="footer">&copy;2025 RankMeTop. All rights reserved.</div>
       </div>
     </>
