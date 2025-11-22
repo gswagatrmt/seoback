@@ -11,48 +11,49 @@ export default function App() {
   const [progress, setProgress] = useState(0);  // Track progress for the progress bar
 
   async function runAudit(e) {
-    e.preventDefault();  // Prevent form submission from redirecting
+  e.preventDefault();
 
-    setErr("");  // Reset previous error
-    setData(null);  // Reset previous data
-    setLoading(true);  // Show loading indicator
-    setProgress(0);  // Reset progress bar to 0
+  setErr("");
+  setData(null);
+  setLoading(true);
+  setProgress(0);
 
-    try {
-      // Simulate loading progress while the API request is ongoing
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(progressInterval);  // Stop once progress reaches 100%
-            return 100;
-          }
-          return Math.min(prev + 5, 100);  // Increment progress by 5% every 500ms
-        });
-      }, 500);  // Update progress every 500ms
+  // Start progress simulation
+  let progressInterval = setInterval(() => {
+    setProgress(prev => {
+      if (prev >= 95) return prev; // stop auto progress at 95% (API will push to 100)
+      return prev + 5;
+    });
+  }, 400);
 
-      // Send POST request to backend for SEO audit
-      const response = await fetch(`${API_BASE}/api/audit`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ url, email }),
-      });
+  try {
+    const r = await fetch(`${API_BASE}/api/audit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, email })
+    });
 
-      const result = await response.json();
+    const j = await r.json();
+    if (!r.ok || !j.ok) throw new Error(j.error || "Audit failed");
 
-      if (!response.ok || !result.ok) {
-        throw new Error(result.error || "Audit failed");
-      }
+    // API finished → instantly push progress to 100%
+    setProgress(100);
 
-      setData(result.result);  // Store the result when the audit completes
-    } catch (error) {
-      setErr(error.message || "An error occurred.");
-    } finally {
-      setLoading(false);  // Hide loading indicator once the request is finished
-      clearInterval(progressInterval);  // Stop progress interval
-    }
+    // Slight delay for UI smoothness
+    setTimeout(() => {
+      setData(j.result);
+      setLoading(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 150);
+
+  } catch (ex) {
+    setErr(ex.message);
+    setLoading(false);
+  } finally {
+    clearInterval(progressInterval);
   }
+}
+
 
   return (
     <>
