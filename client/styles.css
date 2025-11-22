@@ -1155,9 +1155,27 @@ canvas {
   text-align: center; /* Center the text */
 }
 
+/* Progress Bar Container Styles */
+.progress {
+  --bs-progress-height: 30px; /* Height of the progress bar */
+  --bs-progress-bg: #f3f3f3;  /* Background color of the progress bar container */
+  --bs-progress-border-radius: 4px; /* Rounded corners for the progress bar */
+  --bs-progress-bar-color: #ffffff;  /* Text color */
+  --bs-progress-bar-bg: #1B84FF;    /* Blue color for the progress bar */
+  --bs-progress-bar-transition: width 0.6s ease; /* Smooth width transition */
+  display: flex;
+  height: var(--bs-progress-height);
+  overflow: hidden;
+  font-size: 15px; /* Font size for text inside the bar */
+  background-color: var(--bs-progress-bg);
+  border-radius: var(--bs-progress-border-radius);
+  box-shadow: none;
+  font-family: 'Arial', sans-serif;
+  position: relative; /* Allow absolute positioning inside */
+}
+
 /* Progress Bar Styling */
 .progress-bar {
-  position: relative;  /* Position the text relative to the container */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1166,10 +1184,10 @@ canvas {
   white-space: nowrap;
   background-color: var(--bs-progress-bar-bg);
   transition: var(--bs-progress-bar-transition);
+  position: relative;
   height: 100%; /* Full height of the container */
   font-weight: bold; /* Make text bold */
   color: white; /* Ensure text color is white */
-  z-index: 2; /* Ensure text is above the stripes */
 }
 
 /* Striped Effect for Progress Bar */
@@ -1181,6 +1199,7 @@ canvas {
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 1; /* Ensure stripes are behind the text */
 }
 
 /* Smooth Animation for Stripes */
@@ -1198,4 +1217,16 @@ canvas {
   }
 }
 
-
+/* Center the text inside the progress bar */
+.loading-container span {
+ position: absolute;
+  top: 50%;  /* Vertically center the text */
+  left: 50%; /* Horizontally center the text */
+  transform: translate(-50%, -50%); /* Adjust for exact centering */
+  font-size: 14px;  /* Text size */
+  color: #fff;      /* White text color */
+  opacity: 1;       /* Set opacity to 1 to make the text fully visible */
+  font-weight: bold; /* Bold text for better visibility */
+  text-align: center; /* Center the text */
+  z-index: 2;/* Ensure the text is above the stripes */
+}
