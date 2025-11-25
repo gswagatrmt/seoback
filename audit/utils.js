@@ -35,7 +35,7 @@ async function getBrowser() {
 // ------------------ Screenshot Capture ------------------
 // ------------------ Screenshot Capture (Accurate Views) ------------------
 async function captureScreens(url) {
-  console.log(`[SCREENSHOT] Capturing desktop and mobile views for ${url}`);
+  console.log(`[SCREENSHOT] Capturing actual desktop and mobile views for ${url}`);
   const shots = { desktop: null, mobile: null };
 
   try {
@@ -49,46 +49,90 @@ async function captureScreens(url) {
       "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
     );
 
-    const retryTimeouts = [45000, 60000, 90000]; // Retry with different timeouts
-    let desktopImage = null;
-    for (const timeout of retryTimeouts) {
+    const desktopUrl = url.replace(/\?m=\d$/, "");
+
+    try {
+      await desktopPage.goto(desktopUrl, {
+        waitUntil: "networkidle2",
+        timeout: 45000,  // 45s for slower sites
+      });
+
+      await new Promise(res => setTimeout(res, 1200)); // allow render
+      const image = await desktopPage.screenshot({
+        encoding: "base64",
+        fullPage: false,
+      });
+      shots.desktop = `data:image/png;base64,${image}`;
+      console.log("[SCREENSHOT] Desktop captured successfully");
+    } catch (err) {
+      console.warn("[SCREENSHOT] Desktop capture failed (1st attempt):", err.message);
+
+      // 🟢 Retry once with lighter loading mode
       try {
-        await desktopPage.goto(url, { waitUntil: "networkidle2", timeout });
-        await new Promise(res => setTimeout(res, 1200));  // Allow render time
-        desktopImage = await desktopPage.screenshot({ encoding: "base64", fullPage: true });
-        shots.desktop = `data:image/png;base64,${desktopImage}`;
-        console.log("[SCREENSHOT] Desktop capture successful");
-        break;  // Exit retry loop if successful
-      } catch (err) {
-        console.warn(`[SCREENSHOT] Desktop capture failed (timeout ${timeout} ms):`, err.message);
-        if (timeout === retryTimeouts[retryTimeouts.length - 1]) {
-          throw err;  // Rethrow error if all retries fail
-        }
+        console.log("[SCREENSHOT] Retrying desktop capture with lighter mode...");
+        await desktopPage.goto(desktopUrl, {
+          waitUntil: "domcontentloaded", // less strict
+          timeout: 30000,
+        });
+        await new Promise(res => setTimeout(res, 800)); // small wait
+        const image = await desktopPage.screenshot({
+          encoding: "base64",
+          fullPage: false,
+        });
+        shots.desktop = `data:image/png;base64,${image}`;
+        console.log("[SCREENSHOT] Desktop captured successfully (on retry)");
+      } catch (retryErr) {
+        console.warn("[SCREENSHOT] Desktop capture failed again:", retryErr.message);
       }
+    } finally {
+      await desktopPage.close().catch(() => {});
     }
 
     // --- MOBILE ---
     const mobilePage = await browser.newPage();
-    await mobilePage.setViewport({ width: 375, height: 667, isMobile: true, deviceScaleFactor: 2 });
+    await mobilePage.setViewport({
+      width: 375,
+      height: 667,
+      isMobile: true,
+      deviceScaleFactor: 2,
+    });
     await mobilePage.setUserAgent(
       "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
       "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
     );
 
+    const mobileUrl = url;
+
     try {
-      await mobilePage.goto(url, { waitUntil: "networkidle2", timeout: 45000 });
-      await new Promise(res => setTimeout(res, 1200));  // Allow render time
-      const mobileImage = await mobilePage.screenshot({ encoding: "base64", fullPage: true });
-      shots.mobile = `data:image/png;base64,${mobileImage}`;
-      console.log("[SCREENSHOT] Mobile capture successful");
+      await mobilePage.goto(mobileUrl, {
+        waitUntil: "networkidle2",
+        timeout: 45000, // give mobile a little more time
+      });
+
+      await new Promise(res => setTimeout(res, 1200));
+      const image = await mobilePage.screenshot({
+        encoding: "base64",
+        fullPage: false,
+      });
+      shots.mobile = `data:image/png;base64,${image}`;
+      console.log("[SCREENSHOT] Mobile captured successfully");
     } catch (err) {
-      console.warn("[SCREENSHOT] Mobile capture failed (retrying):", err.message);
+      console.warn("[SCREENSHOT] Mobile capture failed (1st attempt):", err.message);
+
+      // 🟢 Retry once with lighter DOM-only load
       try {
-        await mobilePage.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
-        await new Promise(res => setTimeout(res, 800));  // Small wait
-        const retryMobileImage = await mobilePage.screenshot({ encoding: "base64", fullPage: true });
-        shots.mobile = `data:image/png;base64,${retryMobileImage}`;
-        console.log("[SCREENSHOT] Mobile capture successful (after retry)");
+        console.log("[SCREENSHOT] Retrying mobile capture with lighter mode...");
+        await mobilePage.goto(mobileUrl, {
+          waitUntil: "domcontentloaded",
+          timeout: 30000,
+        });
+        await new Promise(res => setTimeout(res, 800));
+        const image = await mobilePage.screenshot({
+          encoding: "base64",
+          fullPage: false,
+        });
+        shots.mobile = `data:image/png;base64,${image}`;
+        console.log("[SCREENSHOT] Mobile captured successfully (on retry)");
       } catch (retryErr) {
         console.warn("[SCREENSHOT] Mobile capture failed again:", retryErr.message);
       }
@@ -99,10 +143,9 @@ async function captureScreens(url) {
     console.error("[SCREENSHOT] General capture error:", err.message);
   }
 
-  console.log("[SCREENSHOT] Screenshot capture completed.");
+  console.log("[SCREENSHOT] Done.");
   return shots;
 }
-
 
 
 // ------------------ Main Audit ------------------
