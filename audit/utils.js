@@ -33,7 +33,6 @@ async function getBrowser() {
 }
 
 // ------------------ Screenshot Capture ------------------
-// ------------------ Screenshot Capture (Accurate Views) ------------------
 async function captureScreens(url) {
   console.log(`[SCREENSHOT] Capturing actual desktop and mobile views for ${url}`);
   const shots = { desktop: null, mobile: null };
@@ -49,15 +48,15 @@ async function captureScreens(url) {
       "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
     );
 
-    const desktopUrl = url.replace(/\?m=\d$/, "");
+    const desktopUrl = url.replace(/\?m=\d$/, ""); // Remove ?m= if present
 
     try {
       await desktopPage.goto(desktopUrl, {
         waitUntil: "networkidle2",
-        timeout: 55000,  // 55s for slower sites
+        timeout: 90000,  // Increased timeout to 90 seconds for slow loading pages
       });
 
-      await new Promise(res => setTimeout(res, 1200)); // allow render
+      await new Promise(res => setTimeout(res, 1200));  // Allow some time for page rendering
       const image = await desktopPage.screenshot({
         encoding: "base64",
         fullPage: false,
@@ -67,14 +66,14 @@ async function captureScreens(url) {
     } catch (err) {
       console.warn("[SCREENSHOT] Desktop capture failed (1st attempt):", err.message);
 
-      // 🟢 Retry once with lighter loading mode
+      // Retry with lighter loading mode
       try {
         console.log("[SCREENSHOT] Retrying desktop capture with lighter mode...");
         await desktopPage.goto(desktopUrl, {
-          waitUntil: "domcontentloaded", // less strict
-          timeout: 45000,
+          waitUntil: "domcontentloaded",  // Lighter load
+          timeout: 60000,  // Retry with 60 seconds timeout
         });
-        await new Promise(res => setTimeout(res, 800)); // small wait
+        await new Promise(res => setTimeout(res, 800));  // Sleep before retrying
         const image = await desktopPage.screenshot({
           encoding: "base64",
           fullPage: false,
@@ -101,15 +100,12 @@ async function captureScreens(url) {
       "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
     );
 
-    const mobileUrl = url;
-
     try {
-      await mobilePage.goto(mobileUrl, {
+      await mobilePage.goto(url, {
         waitUntil: "networkidle2",
-        timeout: 55000, // give mobile a little more time
+        timeout: 90000,  // Increased timeout to 90 seconds for mobile as well
       });
-
-      await new Promise(res => setTimeout(res, 1200));
+      await new Promise(res => setTimeout(res, 1200));  // Allow render time
       const image = await mobilePage.screenshot({
         encoding: "base64",
         fullPage: false,
@@ -119,14 +115,14 @@ async function captureScreens(url) {
     } catch (err) {
       console.warn("[SCREENSHOT] Mobile capture failed (1st attempt):", err.message);
 
-      // 🟢 Retry once with lighter DOM-only load
+      // Retry with lighter DOM-only load
       try {
         console.log("[SCREENSHOT] Retrying mobile capture with lighter mode...");
-        await mobilePage.goto(mobileUrl, {
-          waitUntil: "domcontentloaded",
-          timeout: 45000,
+        await mobilePage.goto(url, {
+          waitUntil: "domcontentloaded",  // Lighter load for mobile
+          timeout: 60000,  // Retry with 60 seconds timeout for mobile
         });
-        await new Promise(res => setTimeout(res, 800));
+        await new Promise(res => setTimeout(res, 800));  // Sleep before retrying
         const image = await mobilePage.screenshot({
           encoding: "base64",
           fullPage: false,
