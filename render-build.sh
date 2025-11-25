@@ -1,36 +1,30 @@
 #!/bin/bash
 set -o errexit
 
-# Define the Chromium install directory
+# Universal Chrome install directory
 CHROME_DIR=${CHROME_DIR:-/tmp/chrome}
 
-# Install lightweight Chromium browser
-if [[ ! -d "$CHROME_DIR/opt/chromium" ]]; then
-  echo "Installing Chromium..."
+if [[ ! -d "$CHROME_DIR/opt/google/chrome" ]]; then
+  echo "Downloading Google Chrome..."
   mkdir -p "$CHROME_DIR"
   cd "$CHROME_DIR"
 
-  # Install dependencies for Chromium
-  apt-get update
-  apt-get install -y chromium-browser \
-    libnss3 \
-    libxss1 \
-    libgdk-pixbuf2.0-0 \
-    libgtk-3-0 \
-    libasound2 \
-    libx11-xcb1 \
-    libxtst6 \
-    libnss3-dev \
-    libgdk-pixbuf2.0-dev \
-    libdbus-glib-1-2
+  # Download stable Chrome
+  wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 
-  echo "Chromium installed at $CHROME_DIR"
+  # Extract Chrome without requiring sudo
+  dpkg -x google-chrome-stable_current_amd64.deb "$CHROME_DIR"
+
+  rm google-chrome-stable_current_amd64.deb
+
+  chmod +x "$CHROME_DIR/opt/google/chrome/chrome"
+  echo "Chrome installed at $CHROME_DIR/opt/google/chrome/chrome"
 else
-  echo "Using cached Chromium at $CHROME_DIR"
+  echo "Using cached Chrome at $CHROME_DIR"
 fi
 
-# Export the path for Chromium to use with Puppeteer
-export CHROMIUM_PATH="/usr/bin/chromium-browser"
-export PATH="$PATH:/usr/bin"
+# Export the Puppeteer Chrome path
+export CHROMIUM_PATH="$CHROME_DIR/opt/google/chrome/chrome"
+export PATH="$PATH:$CHROME_DIR/opt/google/chrome"
 
-echo "Chromium path set!"
+echo "Chrome path set!"
