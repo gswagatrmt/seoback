@@ -54,7 +54,7 @@ async function captureScreens(url) {
     try {
       await desktopPage.goto(desktopUrl, {
         waitUntil: "networkidle2",
-        timeout: 46000,  // 46s for slower sites
+        timeout: 55000,  // 55s for slower sites
       });
 
       await new Promise(res => setTimeout(res, 1200)); // allow render
@@ -72,7 +72,7 @@ async function captureScreens(url) {
         console.log("[SCREENSHOT] Retrying desktop capture with lighter mode...");
         await desktopPage.goto(desktopUrl, {
           waitUntil: "domcontentloaded", // less strict
-          timeout: 32000,
+          timeout: 45000,
         });
         await new Promise(res => setTimeout(res, 800)); // small wait
         const image = await desktopPage.screenshot({
@@ -106,7 +106,7 @@ async function captureScreens(url) {
     try {
       await mobilePage.goto(mobileUrl, {
         waitUntil: "networkidle2",
-        timeout: 46000, // give mobile a little more time
+        timeout: 55000, // give mobile a little more time
       });
 
       await new Promise(res => setTimeout(res, 1200));
@@ -124,7 +124,7 @@ async function captureScreens(url) {
         console.log("[SCREENSHOT] Retrying mobile capture with lighter mode...");
         await mobilePage.goto(mobileUrl, {
           waitUntil: "domcontentloaded",
-          timeout: 32000,
+          timeout: 45000,
         });
         await new Promise(res => setTimeout(res, 800));
         const image = await mobilePage.screenshot({
