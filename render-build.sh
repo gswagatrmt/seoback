@@ -1,7 +1,7 @@
 #!/bin/bash
 set -o errexit
 
-# Define a location for Chromium installation (using /tmp for cloud environments like Render)
+# Universal Chromium install directory
 CHROME_DIR=${CHROME_DIR:-/tmp/chrome}
 
 # Fetch the latest Chromium snapshot version
@@ -13,29 +13,56 @@ if [[ -z "$LATEST" ]]; then
   exit 1
 fi
 
+# Construct the download URL for the latest snapshot
 TAR_URL="https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/${LATEST}/chrome-linux.zip"
 
 # Create the install directory and download Chromium
 if [[ ! -d "$CHROME_DIR" ]]; then
-  echo "Creating a writable Chrome directory at $CHROME_DIR"
+  echo "Creating a writable Chromium directory at $CHROME_DIR"
   mkdir -p "$CHROME_DIR"
   cd "$CHROME_DIR"
 
   # Download and unzip Chromium binary
+  echo "Downloading Chromium snapshot from: $TAR_URL"
   wget -q --show-progress "$TAR_URL" -O chromium-snapshot.zip
   unzip -q chromium-snapshot.zip
   rm chromium-snapshot.zip
 
   # Ensure the binary is executable
   chmod +x chrome-linux/chrome
-
   echo "Chromium installed at $CHROME_DIR/chrome-linux/chrome"
 else
   echo "Using cached Chromium at $CHROME_DIR"
 fi
 
-# Export the correct path for the executable (ensure Puppeteer or the audit tool uses this path)
+# Export the correct path for the executable
 export CHROMIUM_PATH="$CHROME_DIR/chrome-linux/chrome"
 export PATH="$PATH:$CHROME_DIR/chrome-linux"
 
-echo "Chromium path set to $CHROMIUM_PATH"
+# Debugging: Confirm the environment variable is set
+echo "CHROMIUM_PATH is set to: $CHROMIUM_PATH"
+
+# Debugging: Verify the Chromium binary is executable
+echo "Verifying if Chromium binary is executable..."
+if [[ -x "$CHROMIUM_PATH" ]]; then
+  echo "Chromium binary is executable."
+else
+  echo "Chromium binary is NOT executable. Attempting to fix permissions."
+  chmod +x "$CHROMIUM_PATH"
+  echo "Permissions fixed, verifying again..."
+  if [[ -x "$CHROMIUM_PATH" ]]; then
+    echo "Chromium binary is now executable."
+  else
+    echo "Failed to set execute permissions on Chromium binary." >&2
+    exit 1
+  fi
+fi
+
+# Debugging: Check the path variable
+echo "Current PATH: $PATH"
+
+# Test the Chromium binary to ensure it works
+echo "Testing Chromium version..."
+"$CHROMIUM_PATH" --version
+
+echo "Chromium installation completed and verified!"
