@@ -10,8 +10,8 @@ import puppeteer from "puppeteer";
 
 let browserInstance = null;
 
-// Set to track URLs that are being processed
-const inProgress = new Set();
+// Map to track URLs that are being processed and their ongoing audit promises
+const inProgress = new Map();
 
 // ------------------ Reusable Puppeteer Browser ------------------
 async function getBrowser() {
@@ -151,72 +151,84 @@ async function captureScreens(url) {
 
 // ------------------ Main Audit ------------------
 export async function auditSite(url) {
-  // Prevent duplicate audits by checking if the URL is already in progress
+  // Check if the URL is already being processed
   if (inProgress.has(url)) {
-    console.log(`[AUDIT] Skipping duplicate audit for: ${url}`);
-    return;
+    console.log(`[AUDIT] Returning ongoing audit result for: ${url}`);
+    // Wait for the ongoing audit to finish and return the result
+    const auditResult = await inProgress.get(url);
+    return auditResult;
   }
 
-  // Mark the URL as being processed
-  inProgress.add(url);
+  // Start a new audit process for the URL
   console.log(`[AUDIT] Starting audit for: ${url}`);
   console.time(`[AUDIT] ${url}`);
 
-  const base = await fetchPage(url);
+  // Use a promise to store the audit result
+  const auditPromise = (async () => {
+    try {
+      const base = await fetchPage(url);
 
-  // 1️⃣ Run lightweight modules first (fast & parallel)
-  const [on, soc, loc, tec] = await Promise.all([
-    onpage(base),
-    social(base),
-    localSeo(base),
-    tech(base),
-  ]);
+      // 1️⃣ Run lightweight modules first (fast & parallel)
+      const [on, soc, loc, tec] = await Promise.all([
+        onpage(base),
+        social(base),
+        localSeo(base),
+        tech(base),
+      ]);
 
-  // 2️⃣ Run heavy tasks (PSI + screenshots) in parallel
-  const [perf, shots] = await Promise.all([
-    performanceAudit(base),
-    captureScreens(base.finalUrl),
-  ]);
+      // 2️⃣ Run heavy tasks (PSI + screenshots) in parallel
+      const [perf, shots] = await Promise.all([
+        performanceAudit(base),
+        captureScreens(base.finalUrl),
+      ]);
 
-  // 3️⃣ Combine all results
-  const sections = {
-    onpage: on,
-    performance: perf,
-    social: soc,
-    local: loc,
-    tech: tec,
-  };
+      // 3️⃣ Combine all results
+      const sections = {
+        onpage: on,
+        performance: perf,
+        social: soc,
+        local: loc,
+        tech: tec,
+      };
 
-  const grades = gradeAll(sections);
+      const grades = gradeAll(sections);
 
-  const result = {
-    meta: {
-      url: base.finalUrl,
-      fetchedAt: new Date().toISOString(),
-      timing: base.timing,
-      screenshotDesktop: shots.desktop,
-      screenshotMobile: shots.mobile,
-    },
-    sections,
-    grades,
-    summary: {
-      letter: grades.overall.letter,
-      radar: {
-        onpage: grades.onpage.score,
-        performance: grades.performance.score,
-        social: grades.social.score,
-        techlocal: grades.techlocal.score,
-      },
-    },
-  };
+      const result = {
+        meta: {
+          url: base.finalUrl,
+          fetchedAt: new Date().toISOString(),
+          timing: base.timing,
+          screenshotDesktop: shots.desktop,
+          screenshotMobile: shots.mobile,
+        },
+        sections,
+        grades,
+        summary: {
+          letter: grades.overall.letter,
+          radar: {
+            onpage: grades.onpage.score,
+            performance: grades.performance.score,
+            social: grades.social.score,
+            techlocal: grades.techlocal.score,
+          },
+        },
+      };
 
-  console.timeEnd(`[AUDIT] ${url}`);
-  console.log(`[AUDIT] Completed successfully for: ${url}`);
+      console.timeEnd(`[AUDIT] ${url}`);
+      console.log(`[AUDIT] Completed successfully for: ${url}`);
 
-  // Remove the URL from the processing set after the audit is done
-  inProgress.delete(url);
+      return result;
+    } finally {
+      // After audit completion, remove the URL from the set
+      inProgress.delete(url);
+    }
+  })();
 
-  return result;
+  // Store the ongoing audit in progress
+  inProgress.set(url, auditPromise);
+
+  // Return the ongoing promise so that both requests will resolve with the same result
+  return auditPromise;
 }
 
 // ------------------ Graceful Shutdown ------------------
