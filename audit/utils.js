@@ -10,6 +10,9 @@ import puppeteer from "puppeteer";
 
 let browserInstance = null;
 
+// Set to track URLs that are being processed
+const inProgress = new Set();
+
 // ------------------ Reusable Puppeteer Browser ------------------
 async function getBrowser() {
   if (browserInstance) return browserInstance;
@@ -33,7 +36,6 @@ async function getBrowser() {
 }
 
 // ------------------ Screenshot Capture ------------------
-// ------------------ Screenshot Capture (Accurate Views) ------------------
 async function captureScreens(url) {
   console.log(`[SCREENSHOT] Capturing actual desktop and mobile views for ${url}`);
   const shots = { desktop: null, mobile: null };
@@ -54,7 +56,7 @@ async function captureScreens(url) {
     try {
       await desktopPage.goto(desktopUrl, {
         waitUntil: "networkidle2",
-        timeout: 55000,  // 55s for slower sites
+        timeout: 45000,  // 45s for slower sites
       });
 
       await new Promise(res => setTimeout(res, 1200)); // allow render
@@ -72,7 +74,7 @@ async function captureScreens(url) {
         console.log("[SCREENSHOT] Retrying desktop capture with lighter mode...");
         await desktopPage.goto(desktopUrl, {
           waitUntil: "domcontentloaded", // less strict
-          timeout: 45000,
+          timeout: 30000,
         });
         await new Promise(res => setTimeout(res, 800)); // small wait
         const image = await desktopPage.screenshot({
@@ -106,7 +108,7 @@ async function captureScreens(url) {
     try {
       await mobilePage.goto(mobileUrl, {
         waitUntil: "networkidle2",
-        timeout: 55000, // give mobile a little more time
+        timeout: 45000, // give mobile a little more time
       });
 
       await new Promise(res => setTimeout(res, 1200));
@@ -124,7 +126,7 @@ async function captureScreens(url) {
         console.log("[SCREENSHOT] Retrying mobile capture with lighter mode...");
         await mobilePage.goto(mobileUrl, {
           waitUntil: "domcontentloaded",
-          timeout: 45000,
+          timeout: 30000,
         });
         await new Promise(res => setTimeout(res, 800));
         const image = await mobilePage.screenshot({
@@ -147,9 +149,16 @@ async function captureScreens(url) {
   return shots;
 }
 
-
 // ------------------ Main Audit ------------------
 export async function auditSite(url) {
+  // Prevent duplicate audits by checking if the URL is already in progress
+  if (inProgress.has(url)) {
+    console.log(`[AUDIT] Skipping duplicate audit for: ${url}`);
+    return;
+  }
+
+  // Mark the URL as being processed
+  inProgress.add(url);
   console.log(`[AUDIT] Starting audit for: ${url}`);
   console.time(`[AUDIT] ${url}`);
 
@@ -203,6 +212,10 @@ export async function auditSite(url) {
 
   console.timeEnd(`[AUDIT] ${url}`);
   console.log(`[AUDIT] Completed successfully for: ${url}`);
+
+  // Remove the URL from the processing set after the audit is done
+  inProgress.delete(url);
+
   return result;
 }
 
