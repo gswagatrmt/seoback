@@ -4,14 +4,24 @@ import iconv from "iconv-lite";
 import UserAgent from "user-agents";
 import mime from "mime-types";
 
+// Cache to store the results of previous fetches (in-memory)
+const fetchCache = new Map();
+
 export async function fetchPage(inputUrl) {
   const u = inputUrl.startsWith("http") ? inputUrl : `https://${inputUrl}`;
+  
+  // Check if the URL is already in the cache
+  if (fetchCache.has(u)) {
+    console.log(`[fetchPage] Cache hit for: ${u}`);
+    return fetchCache.get(u);
+  }
+
   const ua = new UserAgent().toString();
   const t0 = Date.now();
 
   let resp;
   try {
-    //  First attempt with normal SSL verification
+    // First attempt with normal SSL verification
     resp = await got(u, {
       throwHttpErrors: false,
       decompress: true,
@@ -25,7 +35,7 @@ export async function fetchPage(inputUrl) {
       responseType: "buffer",
     });
   } catch (err) {
-    //  SSL verification failed — log it and retry with relaxed SSL
+    // SSL verification failed — log it and retry with relaxed SSL
     if (err.code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE" || err.message.includes("unable to get local issuer certificate")) {
       console.warn(`⚠️ [fetchPage] SSL verification failed for ${u} (${err.message}). Retrying without certificate validation...`);
       try {
@@ -40,7 +50,7 @@ export async function fetchPage(inputUrl) {
           timeout: { request: 20000 },
           followRedirect: true,
           responseType: "buffer",
-          https: { rejectUnauthorized: false }, //  allow invalid certs
+          https: { rejectUnauthorized: false }, // allow invalid certs
         });
       } catch (e2) {
         console.error(`❌ [fetchPage] Retry failed for ${u}: ${e2.message}`);
@@ -88,7 +98,7 @@ export async function fetchPage(inputUrl) {
 
   const resc = head.map(x => (x.status === "fulfilled" ? x.value : x.reason)).filter(Boolean);
 
-  return {
+  const result = {
     finalUrl: resp.url,
     html,
     $,
@@ -96,4 +106,9 @@ export async function fetchPage(inputUrl) {
     timing: { serverResponse: 0, allContent: (t1 - t0) / 1000, allScripts: (t1 - t0) / 1000 },
     resources: resc,
   };
+
+  // Cache the result for future requests
+  fetchCache.set(u, result);
+
+  return result;
 }
