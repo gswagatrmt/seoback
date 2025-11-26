@@ -1,9 +1,10 @@
 #!/bin/bash
 set -o errexit
 
+# Define a location for Chromium installation (using /tmp for cloud environments like Render)
 CHROME_DIR=${CHROME_DIR:-/tmp/chrome}
 
-# Get latest snapshot number for Linux 64‑bit
+# Fetch the latest Chromium snapshot version
 SNAPSHOT_URL="https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/LAST_CHANGE"
 LATEST=$(wget -qO- "$SNAPSHOT_URL")
 
@@ -14,16 +15,18 @@ fi
 
 TAR_URL="https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/${LATEST}/chrome-linux.zip"
 
+# Create the install directory and download Chromium
 if [[ ! -d "$CHROME_DIR" ]]; then
-  echo "Downloading Chromium snapshot ${LATEST}..."
+  echo "Creating a writable Chrome directory at $CHROME_DIR"
   mkdir -p "$CHROME_DIR"
   cd "$CHROME_DIR"
 
-  wget -q --show-progress "$TAR_URL" -O chromium‑snapshot.zip
-  unzip -q chromium‑snapshot.zip
-  rm chromium‑snapshot.zip
+  # Download and unzip Chromium binary
+  wget -q --show-progress "$TAR_URL" -O chromium-snapshot.zip
+  unzip -q chromium-snapshot.zip
+  rm chromium-snapshot.zip
 
-  # the binary will be inside something like chrome-linux/chrome
+  # Ensure the binary is executable
   chmod +x chrome-linux/chrome
 
   echo "Chromium installed at $CHROME_DIR/chrome-linux/chrome"
@@ -31,7 +34,8 @@ else
   echo "Using cached Chromium at $CHROME_DIR"
 fi
 
+# Export the correct path for the executable (ensure Puppeteer or the audit tool uses this path)
 export CHROMIUM_PATH="$CHROME_DIR/chrome-linux/chrome"
 export PATH="$PATH:$CHROME_DIR/chrome-linux"
 
-echo "Chromium path set: $CHROMIUM_PATH"
+echo "Chromium path set to $CHROMIUM_PATH"
