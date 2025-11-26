@@ -1,38 +1,37 @@
 #!/bin/bash
 set -o errexit
 
-# Universal Chrome/Chromium install directory
 CHROME_DIR=${CHROME_DIR:-/tmp/chrome}
 
-# Define a lightweight Chromium version URL
-CHROMIUM_URL="https://download-chromium.appspot.com/download?platform=linux64"
+# Get latest snapshot number for Linux 64‑bit
+SNAPSHOT_URL="https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/LAST_CHANGE"
+LATEST=$(wget -qO- "$SNAPSHOT_URL")
+
+if [[ -z "$LATEST" ]]; then
+  echo "Unable to fetch latest snapshot number" >&2
+  exit 1
+fi
+
+TAR_URL="https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/${LATEST}/chrome-linux.zip"
 
 if [[ ! -d "$CHROME_DIR" ]]; then
-  echo "Downloading Chromium..."
-
-  # Create Chrome directory if not exists
+  echo "Downloading Chromium snapshot ${LATEST}..."
   mkdir -p "$CHROME_DIR"
   cd "$CHROME_DIR"
 
-  # Download Chromium tarball (lightweight version)
-  wget -q --no-check-certificate "$CHROMIUM_URL" -O chromium.tar.xz
+  wget -q --show-progress "$TAR_URL" -O chromium‑snapshot.zip
+  unzip -q chromium‑snapshot.zip
+  rm chromium‑snapshot.zip
 
-  # Extract the tarball
-  tar -xf chromium.tar.xz --strip-components=1
+  # the binary will be inside something like chrome-linux/chrome
+  chmod +x chrome-linux/chrome
 
-  # Remove the tarball to save space
-  rm chromium.tar.xz
-
-  # Make Chromium executable
-  chmod +x "$CHROME_DIR/chrome"
-
-  echo "Chromium installed at $CHROME_DIR/chrome"
+  echo "Chromium installed at $CHROME_DIR/chrome-linux/chrome"
 else
   echo "Using cached Chromium at $CHROME_DIR"
 fi
 
-# Export the Chromium path for Puppeteer
-export CHROMIUM_PATH="$CHROME_DIR/chrome"
-export PATH="$PATH:$CHROME_DIR"
+export CHROMIUM_PATH="$CHROME_DIR/chrome-linux/chrome"
+export PATH="$PATH:$CHROME_DIR/chrome-linux"
 
-echo "Chromium path set!"
+echo "Chromium path set: $CHROMIUM_PATH"
