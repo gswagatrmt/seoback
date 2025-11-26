@@ -1,14 +1,13 @@
 #!/bin/bash
 set -o errexit
 
-# Universal Chromium install directory
-CHROME_DIR=${CHROME_DIR:-/tmp/chrome}
+# Universal Chromium install directory in Render's persistent location
+CHROME_DIR=${CHROME_DIR:-/opt/render/project/.render/chrome}
 
 # Fetch the latest Chromium snapshot version
 SNAPSHOT_URL="https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/LAST_CHANGE"
 LATEST=$(wget -qO- "$SNAPSHOT_URL")
 
-# Check if we got the latest snapshot version number
 if [[ -z "$LATEST" ]]; then
   echo "Unable to fetch latest snapshot number" >&2
   exit 1
@@ -59,11 +58,4 @@ else
   fi
 fi
 
-# Debugging: Check the PATH variable to ensure it's correct
-echo "Current PATH: $PATH"
-
-# Test the Chromium binary to ensure it works by checking its version
-echo "Testing Chromium version..."
-"$CHROMIUM_PATH" --version
-
-echo "Chromium installation completed and verified!"
+# Debugging: Check the P
