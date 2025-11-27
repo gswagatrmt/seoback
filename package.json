@@ -24,6 +24,7 @@
     "lucide-react": "^0.546.0",
     "mime-types": "^2.1.35",
     "playwright": "^1.56.1",
+    "p-limit": "latest",
     "punycode": "^2.3.1",
     "puppeteer": "latest",
     "react": "^18.3.1",
