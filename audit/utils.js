@@ -80,7 +80,7 @@ async function captureDeviceView(page, url, isMobile) {
 
   // Ensure page has loaded before taking a screenshot
   try {
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 45000 });
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 52000 });
 
     // Wait for the page to settle and only capture the topmost view (current viewport)
     await new Promise(res => setTimeout(res, 1200));
