@@ -40,21 +40,20 @@ async function getBrowser() {
 }
 
 // ------------------ Screenshot Capture ------------------
+// ------------------ Screenshot Capture ------------------
 async function captureScreens(url) {
   console.log(`[SCREENSHOT] Capturing actual desktop and mobile views for ${url}`);
   const shots = { desktop: null, mobile: null };
 
   try {
     const browser = await getBrowser();
-    const page = await browser.newPage();  // Reuse the same page for both captures
 
     // Capture desktop view
-    shots.desktop = await captureDeviceView(page, url, false);  // false = desktop
+    shots.desktop = await captureDeviceView(browser, url, false);  // false = desktop
 
     // Capture mobile view
-    shots.mobile = await captureDeviceView(page, url, true);   // true = mobile
+    shots.mobile = await captureDeviceView(browser, url, true);   // true = mobile
 
-    await page.close();
   } catch (err) {
     console.error("[SCREENSHOT] General capture error:", err.message);
   }
@@ -64,23 +63,37 @@ async function captureScreens(url) {
 }
 
 // ------------------ Capture Device View (Desktop/Mobile) ------------------
-async function captureDeviceView(page, url, isMobile) {
-  const viewport = isMobile
-    ? { width: 375, height: 667, isMobile: true, deviceScaleFactor: 2 }
-    : { width: 1366, height: 768 };
-
-  const userAgent = isMobile
-    ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
-    "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-    : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
-
-  await page.setViewport(viewport);
-  await page.setUserAgent(userAgent);
-
-  // Ensure page has loaded before taking a screenshot
+async function captureDeviceView(browser, url, isMobile) {
+  let page = null;
   try {
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 50000 });
+    page = await browser.newPage();
+
+    const viewport = isMobile
+      ? { width: 375, height: 667, isMobile: true, deviceScaleFactor: 2 }
+      : { width: 1366, height: 768 };
+
+    const userAgent = isMobile
+      ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
+      "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+      : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+
+    await page.setViewport(viewport);
+    await page.setUserAgent(userAgent);
+
+    // Ensure page has loaded before taking a screenshot
+    try {
+      // Try strict network idle first
+      await page.goto(url, { waitUntil: "networkidle2", timeout: 50000 });
+    } catch (navErr) {
+      console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (networkidle2), retrying with domcontentloaded...`);
+      // Fallback to domcontentloaded if networkidle2 times out
+      try {
+        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+      } catch (retryErr) {
+        throw new Error(`Navigation failed: ${retryErr.message}`);
+      }
+    }
 
     // Wait for the page to settle and only capture the topmost view (current viewport)
     await new Promise(res => setTimeout(res, 1200));
@@ -94,6 +107,10 @@ async function captureDeviceView(page, url, isMobile) {
   } catch (err) {
     console.warn(`[SCREENSHOT] Capture failed for ${isMobile ? "mobile" : "desktop"} view:`, err.message);
     return null;
+  } finally {
+    if (page) {
+      await page.close().catch(() => { });
+    }
   }
 }
 
