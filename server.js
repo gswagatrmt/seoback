@@ -37,7 +37,7 @@ app.post("/api/audit", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Missing URL parameter" });
     }
 
-    console.log(`[AUDIT] Starting audit for: ${url}`);
+    console.log(`[API] Received request for: ${url}`);
 
     // Run the SEO audit using the auditSite function, which is assumed to be imported from 'audit/utils.js'
     const result = await auditSite(url).catch(err => {
