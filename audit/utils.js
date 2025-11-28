@@ -89,9 +89,14 @@ async function captureDeviceView(browser, url, isMobile) {
       console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (networkidle2), retrying with domcontentloaded...`);
       // Fallback to domcontentloaded if networkidle2 times out
       try {
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
       } catch (retryErr) {
-        throw new Error(`Navigation failed: ${retryErr.message}`);
+        // If it's just a timeout, we can still try to capture what's on the screen
+        if (retryErr.message.includes("timeout") || retryErr.message.includes("Timeout")) {
+          console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (domcontentloaded). Attempting capture anyway...`);
+        } else {
+          throw new Error(`Navigation failed: ${retryErr.message}`);
+        }
       }
     }
 
