@@ -38,7 +38,7 @@ app.post("/api/audit", async (req, res) => {
     }
 
     console.log(`[AUDIT] Starting audit for: ${url}`);
-    
+
     // Run the SEO audit using the auditSite function, which is assumed to be imported from 'audit/utils.js'
     const result = await auditSite(url).catch(err => {
       console.error("[AUDIT] auditSite() error:", err.message);
@@ -81,7 +81,7 @@ app.post("/api/audit/pdf", async (req, res) => {
     if (!payload) return res.status(400).json({ ok: false, error: "Missing payload" });
 
     console.log("[PDF] Generating report...");
-    
+
     // Generate the PDF using the renderPdf function (assumed to be imported from 'audit/pdf.js')
     const buffer = await renderPdf(payload);
     if (!buffer?.length) throw new Error("Empty PDF buffer");
