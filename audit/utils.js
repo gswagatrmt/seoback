@@ -71,16 +71,16 @@ async function captureDeviceView(page, url, isMobile) {
 
   const userAgent = isMobile
     ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
-      "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+    "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
     : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 
   await page.setViewport(viewport);
   await page.setUserAgent(userAgent);
 
   // Ensure page has loaded before taking a screenshot
   try {
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 52000 });
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 50000 });
 
     // Wait for the page to settle and only capture the topmost view (current viewport)
     await new Promise(res => setTimeout(res, 1200));
@@ -182,7 +182,7 @@ export async function auditSite(url) {
 // ------------------ Graceful Shutdown ------------------
 process.on("exit", async () => {
   if (browserInstance) {
-    await browserInstance.close().catch(() => {});
+    await browserInstance.close().catch(() => { });
     console.log("[BROWSER] Closed.");
   }
 });
