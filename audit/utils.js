@@ -26,6 +26,7 @@ async function getBrowser() {
 
   browserInstance = await puppeteer.launch({
     headless: true,
+    protocolTimeout: 120000, // Increase protocol timeout to 2 minutes
     executablePath: chromiumPath,  // Path to Chromium
     args: [
       "--no-sandbox",
@@ -106,6 +107,7 @@ async function captureDeviceView(browser, url, isMobile) {
     const image = await page.screenshot({
       encoding: "base64",
       fullPage: false, // Capture only the viewport area
+      timeout: 60000, // Increase screenshot timeout to 60 seconds
     });
 
     return `data:image/png;base64,${image}`;
