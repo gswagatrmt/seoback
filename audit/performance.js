@@ -18,8 +18,10 @@ async function fetchPageSpeedInsights(url) {
       const audits = lhr.audits || {};
       const val = (id) => +(audits[id]?.numericValue ?? 0) / 1000;
 
-      // Extract screenshot
-      const screenshot = audits["final-screenshot"]?.details?.data || null;
+      // Extract screenshot (Prioritize full-page for better quality)
+      const screenshot = audits["full-page-screenshot"]?.screenshot?.data
+        || audits["final-screenshot"]?.details?.data
+        || null;
 
       return {
         strategy,
