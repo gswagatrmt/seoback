@@ -49,80 +49,53 @@ async function getBrowser() {
 async function captureScreens(url) {
   console.log(`[SCREENSHOT] Capturing actual desktop and mobile views for ${url}`);
   const shots = { desktop: null, mobile: null };
+  let page = null;
 
   try {
     const browser = await getBrowser();
-
-    // Capture desktop view
-    shots.desktop = await captureDeviceView(browser, url, false);  // false = desktop
-
-    // Capture mobile view
-    shots.mobile = await captureDeviceView(browser, url, true);   // true = mobile
-
-  } catch (err) {
-    console.error("[SCREENSHOT] General capture error:", err.message);
-  }
-
-  console.log("[SCREENSHOT] Done.");
-  return shots;
-}
-
-// ------------------ Capture Device View (Desktop/Mobile) ------------------
-async function captureDeviceView(browser, url, isMobile) {
-  let page = null;
-  try {
     page = await browser.newPage();
 
-    const viewport = isMobile
-      ? { width: 375, height: 667, isMobile: true, deviceScaleFactor: 2 }
-      : { width: 1366, height: 768 };
+    // 1. Set Desktop Viewport
+    await page.setViewport({ width: 1366, height: 768 });
+    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36");
 
-    const userAgent = isMobile
-      ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
-      "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-      : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
-
-    await page.setViewport(viewport);
-    await page.setUserAgent(userAgent);
-
-    // Ensure page has loaded before taking a screenshot
+    // 2. Navigate (Load once)
     try {
-      // Try strict network idle first (Reduced timeout for speed)
       await page.goto(url, { waitUntil: "networkidle2", timeout: 15000 });
     } catch (navErr) {
-      console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (networkidle2), retrying with domcontentloaded...`);
-      // Fallback to domcontentloaded if networkidle2 times out
+      console.warn(`[SCREENSHOT] Navigation timeout (networkidle2), retrying with domcontentloaded...`);
       try {
         await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 });
       } catch (retryErr) {
-        // If it's just a timeout, we can still try to capture what's on the screen
         if (retryErr.message.includes("timeout") || retryErr.message.includes("Timeout")) {
-          console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (domcontentloaded). Attempting capture anyway...`);
+          console.warn(`[SCREENSHOT] Navigation timeout (domcontentloaded). Attempting capture anyway...`);
         } else {
           throw new Error(`Navigation failed: ${retryErr.message}`);
         }
       }
     }
 
-    // Wait for the page to settle and only capture the topmost view (current viewport)
-    await new Promise(res => setTimeout(res, 1200));
+    // 3. Capture Desktop
+    await new Promise(res => setTimeout(res, 1000)); // Settle
+    const desktopImg = await page.screenshot({ encoding: "base64", fullPage: false, timeout: 30000 });
+    shots.desktop = `data:image/png;base64,${desktopImg}`;
 
-    const image = await page.screenshot({
-      encoding: "base64",
-      fullPage: false, // Capture only the viewport area
-      timeout: 60000, // Increase screenshot timeout to 60 seconds
-    });
+    // 4. Resize to Mobile & Capture
+    await page.setViewport({ width: 375, height: 667, isMobile: true, deviceScaleFactor: 2 });
+    await page.setUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1");
 
-    return `data:image/png;base64,${image}`;
+    await new Promise(res => setTimeout(res, 1000)); // Allow layout to reflow
+    const mobileImg = await page.screenshot({ encoding: "base64", fullPage: false, timeout: 30000 });
+    shots.mobile = `data:image/png;base64,${mobileImg}`;
+
   } catch (err) {
-    console.warn(`[SCREENSHOT] Capture failed for ${isMobile ? "mobile" : "desktop"} view:`, err.message);
-    return null;
+    console.error("[SCREENSHOT] General capture error:", err.message);
   } finally {
-    if (page) {
-      await page.close().catch(() => { });
-    }
+    if (page) await page.close().catch(() => { });
   }
+
+  console.log("[SCREENSHOT] Done.");
+  return shots;
 }
 
 // ------------------ Main Audit ------------------
