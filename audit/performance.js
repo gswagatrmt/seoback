@@ -108,6 +108,11 @@ export async function performanceAudit(base) {
     else if (avg < 90) score -= 5;
   }
 
+  // Override desktop screenshot with high-quality mshots
+  if (psi.desktop) {
+    psi.desktop.screenshot = `https://s0.wp.com/mshots/v1/${encodeURIComponent(finalUrl)}?w=1280&v=${Date.now()}`;
+  }
+
   return {
     load: timing,
     downloadSizeMB,
