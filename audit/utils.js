@@ -14,149 +14,188 @@ let browserInstance = null;
 // Map to track URLs that are being processed and their ongoing audit promises
 const inProgress = new Map();
 
-// Limit concurrency to 5 concurrent tasks (adjust as needed)
-const limit = pLimit(5);
+// Limit concurrency to 1 concurrent task to save memory on 512MB instances
+const limit = pLimit(1);
 
-// ------------------ Memory-Optimized Puppeteer Browser ------------------
+// ------------------ Memory-Optimized Puppeteer Browser (Under 512MB RAM) ------------------
 async function getBrowser() {
-  if (browserInstance) return browserInstance;
+  if (browserInstance) {
+    console.log("[BROWSER] Reusing existing browser instance");
+    return browserInstance;
+  }
 
   // Get the CHROMIUM_PATH environment variable
   const chromiumPath = process.env.CHROMIUM_PATH || puppeteer.executablePath();
 
-  // Memory-optimized configuration to stay under 512MB RAM limit
+  console.log("[BROWSER] Launching new memory-optimized Puppeteer instance");
+
   browserInstance = await puppeteer.launch({
     headless: true,
+    protocolTimeout: 120000, // Increase protocol timeout to 2 minutes
     executablePath: chromiumPath,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",           // Disable shared memory
+      "--disable-dev-shm-usage",           // Critical for low RAM usage
       "--disable-accelerated-2d-canvas",   // Reduce memory usage
       "--disable-background-timer-throttling",
       "--disable-backgrounding-occluded-windows",
       "--disable-renderer-backgrounding",
-      "--disable-features=TranslateUI",    // Disable translation
+      "--disable-features=TranslateUI",    // Disable translation features
       "--disable-ipc-flooding-protection",
       "--disable-background-networking",   // Reduce background activity
       "--no-first-run",
-      "--no-zygote",                       // Single process mode
-      "--single-process",                  // Important for low RAM
+      "--no-zygote",                       // Single process mode for low RAM
+      "--single-process",                  // IMPORTANT: Single process to save RAM
       "--memory-pressure-off",             // Disable memory pressure handling
-      "--max_old_space_size=256",          // Limit heap size to 256MB
+      "--max_old_space_size=200",          // Limit heap size to 200MB (safe under 512MB limit)
       "--optimize-for-size",               // Optimize for memory usage
       "--disable-gpu",                     // Disable GPU acceleration
       "--disable-software-rasterizer",
       "--disable-web-security",            // Allow cross-origin for screenshots
+      "--disable-extensions",              // Disable extensions
+      "--ignore-certificate-errors",
       "--window-size=1366,768",
     ],
   });
 
-  console.log("[BROWSER] Launched memory-optimized Puppeteer instance");
+  console.log("[BROWSER] Memory-optimized browser launched successfully");
   return browserInstance;
 }
 
 // ------------------ Screenshot Capture ------------------
-// ------------------ Optimized Screenshot Capture ------------------
-// PSI for mobile (low RAM), Puppeteer for desktop (memory-optimized)
+// ------------------ Hybrid Screenshot Capture ------------------
+// PSI for mobile (fast, low RAM), Puppeteer for desktop (high quality, memory-optimized)
 async function captureScreens(url, psiData) {
-  console.log(`[SCREENSHOT] Capturing screenshots: PSI for mobile, Puppeteer for desktop`);
+  console.log(`[SCREENSHOT] Capturing screenshots: PSI mobile + Puppeteer desktop for ${url}`);
+
+  // Start with PSI mobile screenshot (if available)
   const shots = {
     desktop: null,
-    mobile: psiData?.mobile?.screenshot || null // Use PSI screenshot for mobile
+    mobile: psiData?.mobile?.screenshot || null
   };
 
   if (shots.mobile) {
-    console.log(`[SCREENSHOT] Using PSI mobile screenshot`);
+    console.log(`[SCREENSHOT] Using PSI mobile screenshot from performance audit`);
   } else {
-    console.log(`[SCREENSHOT] No PSI mobile screenshot available`);
+    console.log(`[SCREENSHOT] No PSI mobile screenshot available, will capture with Puppeteer`);
   }
 
-  // Only use Puppeteer for desktop (memory-optimized)
+  // Capture desktop screenshot with memory-optimized Puppeteer
   try {
+    console.log(`[SCREENSHOT] Launching memory-optimized Puppeteer for desktop screenshot`);
     const browser = await getBrowser();
-    shots.desktop = await captureDesktopView(browser, url);
+    shots.desktop = await captureDeviceView(browser, url, false);  // false = desktop
+    console.log(`[SCREENSHOT] Desktop screenshot captured successfully`);
   } catch (err) {
     console.error("[SCREENSHOT] Desktop capture error:", err.message);
+    console.log("[SCREENSHOT] Continuing without desktop screenshot");
   }
 
-  console.log("[SCREENSHOT] Capture complete.");
+  // If mobile screenshot not available from PSI, capture with Puppeteer as fallback
+  if (!shots.mobile) {
+    try {
+      console.log(`[SCREENSHOT] Capturing mobile screenshot with Puppeteer (PSI fallback)`);
+      const browser = await getBrowser();
+      shots.mobile = await captureDeviceView(browser, url, true);   // true = mobile
+      console.log(`[SCREENSHOT] Mobile screenshot captured successfully`);
+    } catch (err) {
+      console.error("[SCREENSHOT] Mobile capture error:", err.message);
+      console.log("[SCREENSHOT] Continuing without mobile screenshot");
+    }
+  }
+
+  console.log(`[SCREENSHOT] Capture complete - Desktop: ${shots.desktop ? '✓' : '✗'}, Mobile: ${shots.mobile ? '✓' : '✗'}`);
   return shots;
 }
 
-// ------------------ Memory-Optimized Desktop Screenshot Capture ------------------
-async function captureDesktopView(browser, url) {
+// ------------------ Memory-Optimized Device Screenshot Capture ------------------
+async function captureDeviceView(browser, url, isMobile) {
   let page = null;
   try {
+    console.log(`[SCREENSHOT] Creating new page for ${isMobile ? "mobile" : "desktop"} screenshot`);
     page = await browser.newPage();
 
-    // Optimized desktop viewport configuration
-    const viewport = {
-      width: 1366,
-      height: 768,
-      deviceScaleFactor: 1, // Reduced for memory efficiency
-      isMobile: false
-    };
+    const viewport = isMobile
+      ? { width: 375, height: 667, isMobile: true, deviceScaleFactor: 2 }
+      : { width: 1366, height: 768, deviceScaleFactor: 1 }; // Reduced scale for memory
 
-    const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+    const userAgent = isMobile
+      ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
+      "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+      : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
       "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 
+    console.log(`[SCREENSHOT] Setting ${isMobile ? "mobile" : "desktop"} viewport and user agent`);
     await page.setViewport(viewport);
     await page.setUserAgent(userAgent);
 
-    // Block resource types that consume memory
-    await page.setRequestInterception(true);
-    page.on('request', (request) => {
-      const resourceType = request.resourceType();
-      // Block heavy resources to save memory
-      if (['image', 'media', 'font', 'stylesheet'].includes(resourceType)) {
-        request.abort();
-      } else {
-        request.continue();
-      }
-    });
-
-    console.log(`[SCREENSHOT] Loading desktop view for ${url} (memory-optimized)`);
-
-    // Use faster loading strategy
-    try {
-      await page.goto(url, {
-        waitUntil: "domcontentloaded",  // Faster than networkidle
-        timeout: 30000
+    // Memory optimization: Block resource-heavy content for screenshots
+    if (!isMobile) { // Only for desktop to save memory
+      console.log(`[SCREENSHOT] Setting up resource blocking for memory optimization`);
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        const resourceType = request.resourceType();
+        // Block memory-intensive resources but allow essential ones
+        if (['image', 'media', 'font'].includes(resourceType)) {
+          console.log(`[SCREENSHOT] Blocking ${resourceType} resource to save memory`);
+          request.abort();
+        } else {
+          request.continue();
+        }
       });
+    }
+
+    console.log(`[SCREENSHOT] Navigating to ${url} for ${isMobile ? "mobile" : "desktop"} screenshot`);
+
+    // Ensure page has loaded before taking a screenshot
+    try {
+      // Try network idle first for better content loading
+      await page.goto(url, { waitUntil: "networkidle0", timeout: 20000 });
+      console.log(`[SCREENSHOT] Page loaded successfully with networkidle0`);
     } catch (navErr) {
-      if (navErr.message.includes("timeout")) {
-        console.warn(`[SCREENSHOT] Navigation timeout, attempting capture anyway...`);
-      } else {
-        throw new Error(`Navigation failed: ${navErr.message}`);
+      console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (networkidle0), retrying with domcontentloaded...`);
+      // Fallback to domcontentloaded if networkidle times out
+      try {
+        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
+        console.log(`[SCREENSHOT] Page loaded with domcontentloaded fallback`);
+      } catch (retryErr) {
+        // If it's just a timeout, we can still try to capture what's on the screen
+        if (retryErr.message.includes("timeout") || retryErr.message.includes("Timeout")) {
+          console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (domcontentloaded). Attempting capture anyway...`);
+        } else {
+          console.error(`[SCREENSHOT] Navigation failed: ${retryErr.message}`);
+          throw new Error(`Navigation failed: ${retryErr.message}`);
+        }
       }
     }
 
-    // Minimal wait time to save memory
-    await new Promise(res => setTimeout(res, 800));
+    // Wait for the page to settle - shorter wait for memory efficiency
+    console.log(`[SCREENSHOT] Waiting for page to settle before screenshot`);
+    await new Promise(res => setTimeout(res, isMobile ? 800 : 1000)); // Shorter for mobile
 
-    // Memory-efficient screenshot settings
+    console.log(`[SCREENSHOT] Taking ${isMobile ? "mobile" : "desktop"} screenshot`);
     const image = await page.screenshot({
       encoding: "base64",
-      fullPage: false,  // Only viewport
-      type: 'png',      // PNG for better compression
-      quality: 80,      // Good quality but not maximum
+      fullPage: false, // Capture only the viewport area
+      type: 'png',
+      quality: 85, // Good quality but memory-efficient
+      timeout: 30000, // Reasonable timeout
     });
 
-    console.log(`[SCREENSHOT] Desktop screenshot captured successfully`);
+    console.log(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} screenshot captured successfully (${image.length} bytes)`);
     return `data:image/png;base64,${image}`;
 
   } catch (err) {
-    console.warn(`[SCREENSHOT] Desktop capture failed:`, err.message);
+    console.error(`[SCREENSHOT] Capture failed for ${isMobile ? "mobile" : "desktop"} view:`, err.message);
+    console.log(`[SCREENSHOT] Continuing with null screenshot for ${isMobile ? "mobile" : "desktop"}`);
     return null;
   } finally {
     if (page) {
-      try {
-        await page.close();
-        console.log(`[SCREENSHOT] Desktop page closed`);
-      } catch (e) {
-        console.warn(`[SCREENSHOT] Error closing desktop page:`, e.message);
-      }
+      console.log(`[SCREENSHOT] Closing ${isMobile ? "mobile" : "desktop"} page`);
+      await page.close().catch((err) => {
+        console.error(`[SCREENSHOT] Error closing page:`, err.message);
+      });
     }
   }
 }
@@ -191,7 +230,7 @@ export async function auditSite(url) {
       // Run heavy tasks (PSI + screenshots) in parallel with concurrency control
       const perf = await performanceAudit(base);
 
-      // Capture screenshots: PSI mobile + Puppeteer desktop
+      // Capture screenshots: PSI mobile + Puppeteer desktop (memory-optimized)
       const shots = await limit(() => captureScreens(base.finalUrl, perf.pageSpeedInsights));
 
       // Combine all results
@@ -210,8 +249,8 @@ export async function auditSite(url) {
           url: base.finalUrl,
           fetchedAt: new Date().toISOString(),
           timing: base.timing,
-          screenshotDesktop: shots.desktop,  // Puppeteer desktop screenshot
-          screenshotMobile: shots.mobile,   // PSI mobile screenshot
+          screenshotDesktop: shots.desktop,  // Puppeteer desktop screenshot (memory-optimized)
+          screenshotMobile: shots.mobile,   // PSI mobile screenshot (fast, low RAM)
         },
         sections,
         grades,
@@ -228,6 +267,7 @@ export async function auditSite(url) {
 
       console.timeEnd(`[AUDIT] ${url}`);
       console.log(`[AUDIT] Completed successfully for: ${url}`);
+      console.log(`[AUDIT] Screenshots captured - Desktop: ${shots.desktop ? '✓ Available' : '✗ Missing'}, Mobile: ${shots.mobile ? '✓ Available' : '✗ Missing'}`);
 
       return result;
     } finally {
