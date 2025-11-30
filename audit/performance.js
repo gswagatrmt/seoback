@@ -18,7 +18,7 @@ async function fetchPageSpeedInsights(url) {
       const audits = lhr.audits || {};
       const val = (id) => +(audits[id]?.numericValue ?? 0) / 1000;
 
-      // Extract screenshot from PSI (only for mobile as requested)
+      // Extract screenshot from PSI (mobile primary, desktop as fallback)
       let screenshot = null;
       if (strategy === 'mobile') {
         // For mobile, prioritize final-screenshot (viewport screenshot)
@@ -28,6 +28,17 @@ async function fetchPageSpeedInsights(url) {
 
         if (screenshot) {
           console.log(`[PSI] Captured mobile screenshot from ${audits["final-screenshot"]?.details?.data ? 'final-screenshot' : 'full-page-screenshot'}`);
+        }
+      } else if (strategy === 'desktop') {
+        // For desktop, extract screenshot for fallback purposes (lower quality but available)
+        screenshot = audits["final-screenshot"]?.details?.data
+          || audits["full-page-screenshot"]?.screenshot?.data
+          || null;
+
+        if (screenshot) {
+          console.log(`[PSI] Captured desktop screenshot for fallback from ${audits["final-screenshot"]?.details?.data ? 'final-screenshot' : 'full-page-screenshot'}`);
+        } else {
+          console.log(`[PSI] No desktop screenshot available from PSI`);
         }
       }
 
