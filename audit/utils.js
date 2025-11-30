@@ -6,97 +6,9 @@ import { social } from "./social.js";
 import { localSeo } from "./local.js";
 import { tech } from "./tech.js";
 import { gradeAll } from "./graders.js";
-import puppeteer from "puppeteer";
-import pLimit from 'p-limit'; // For limiting concurrency
-
-let browserInstance = null;
 
 // Map to track URLs that are being processed and their ongoing audit promises
 const inProgress = new Map();
-
-// Limit concurrency to 1 concurrent task to save memory on 512MB instances
-const limit = pLimit(1);
-
-// ------------------ Reusable Puppeteer Browser ------------------
-async function getBrowser() {
-  if (browserInstance) return browserInstance;
-
-  // Get the CHROMIUM_PATH environment variable
-  const chromiumPath = process.env.CHROMIUM_PATH || puppeteer.executablePath();
-
-  browserInstance = await puppeteer.launch({
-    headless: true,
-    protocolTimeout: 120000, // Increase protocol timeout to 2 minutes
-    executablePath: chromiumPath,  // Path to Chromium
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu", // Save memory
-      "--disable-extensions",
-      "--no-first-run",
-      "--no-zygote",
-      "--ignore-certificate-errors",
-      "--window-size=1366,768",
-    ],
-  });
-
-  return browserInstance;
-}
-
-// ------------------ Screenshot Capture ------------------
-// ------------------ Screenshot Capture ------------------
-async function captureScreens(url) {
-  console.log(`[SCREENSHOT] Capturing actual desktop and mobile views for ${url}`);
-  const shots = { desktop: null, mobile: null };
-  let page = null;
-
-  try {
-    const browser = await getBrowser();
-    page = await browser.newPage();
-
-    // 1. Set Desktop Viewport
-    await page.setViewport({ width: 1366, height: 768 });
-    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36");
-
-    // 2. Navigate (Load once)
-    try {
-      await page.goto(url, { waitUntil: "networkidle2", timeout: 15000 });
-    } catch (navErr) {
-      console.warn(`[SCREENSHOT] Navigation timeout (networkidle2), retrying with domcontentloaded...`);
-      try {
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 });
-      } catch (retryErr) {
-        if (retryErr.message.includes("timeout") || retryErr.message.includes("Timeout")) {
-          console.warn(`[SCREENSHOT] Navigation timeout (domcontentloaded). Attempting capture anyway...`);
-        } else {
-          throw new Error(`Navigation failed: ${retryErr.message}`);
-        }
-      }
-    }
-
-    // 3. Capture Desktop
-    await new Promise(res => setTimeout(res, 1000)); // Settle
-    const desktopImg = await page.screenshot({ encoding: "base64", fullPage: false, timeout: 30000 });
-    shots.desktop = `data:image/png;base64,${desktopImg}`;
-
-    // 4. Resize to Mobile & Capture
-    await page.setViewport({ width: 375, height: 667, isMobile: true, deviceScaleFactor: 2 });
-    await page.setUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1");
-
-    await new Promise(res => setTimeout(res, 1000)); // Allow layout to reflow
-    const mobileImg = await page.screenshot({ encoding: "base64", fullPage: false, timeout: 30000 });
-    shots.mobile = `data:image/png;base64,${mobileImg}`;
-
-  } catch (err) {
-    console.error("[SCREENSHOT] General capture error:", err.message);
-  } finally {
-    if (page) await page.close().catch(() => { });
-  }
-
-  console.log("[SCREENSHOT] Done.");
-  return shots;
-}
 
 // ------------------ Main Audit ------------------
 export async function auditSite(url) {
@@ -125,10 +37,9 @@ export async function auditSite(url) {
         tech(base),
       ]);
 
-      // Run heavy tasks (PSI + screenshots) in parallel with concurrency control
-      const [perf, shots] = await Promise.all([
+      // Run heavy tasks (PSI) - Screenshots now come from PSI
+      const [perf] = await Promise.all([
         performanceAudit(base),
-        limit(() => captureScreens(base.finalUrl)),  // Control concurrency with p-limit
       ]);
 
       // Combine all results
@@ -147,8 +58,8 @@ export async function auditSite(url) {
           url: base.finalUrl,
           fetchedAt: new Date().toISOString(),
           timing: base.timing,
-          screenshotDesktop: shots.desktop,
-          screenshotMobile: shots.mobile,
+          screenshotDesktop: perf.pageSpeedInsights?.desktop?.screenshot || null,
+          screenshotMobile: perf.pageSpeedInsights?.mobile?.screenshot || null,
         },
         sections,
         grades,
@@ -181,9 +92,7 @@ export async function auditSite(url) {
 }
 
 // ------------------ Graceful Shutdown ------------------
+// ------------------ Graceful Shutdown ------------------
 process.on("exit", async () => {
-  if (browserInstance) {
-    await browserInstance.close().catch(() => { });
-    console.log("[BROWSER] Closed.");
-  }
+  // No browser to close
 });
