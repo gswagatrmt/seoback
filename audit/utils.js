@@ -138,28 +138,32 @@ async function captureDeviceView(browser, url, isMobile) {
         const resourceType = request.resourceType();
         // Allow all resources for most authentic desktop screenshot (including videos)
         // Note: This may increase RAM usage but provides the most accurate representation
-        console.log(`[SCREENSHOT] Allowing ${resourceType} resource for complete authentic rendering`);
         request.continue();
       });
     }
 
     console.log(`[SCREENSHOT] Navigating to ${url} for ${isMobile ? "mobile" : "desktop"} screenshot`);
 
-    // Ensure page has loaded before taking a screenshot
+    // Enhanced navigation strategy for heavy sites
+    let navigationSuccess = false;
+
     try {
-      // Try network idle first for better content loading
-      await page.goto(url, { waitUntil: "networkidle0", timeout: 20000 });
+      // Try network idle first with longer timeout for heavy sites
+      await page.goto(url, { waitUntil: "networkidle0", timeout: 45000 });
       console.log(`[SCREENSHOT] Page loaded successfully with networkidle0`);
+      navigationSuccess = true;
     } catch (navErr) {
-      console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (networkidle0), retrying with domcontentloaded...`);
-      // Fallback to domcontentloaded if networkidle times out
+      console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (networkidle0), trying domcontentloaded...`);
+
       try {
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
+        // Fallback to domcontentloaded with longer timeout
+        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
         console.log(`[SCREENSHOT] Page loaded with domcontentloaded fallback`);
+        navigationSuccess = true;
       } catch (retryErr) {
-        // If it's just a timeout, we can still try to capture what's on the screen
         if (retryErr.message.includes("timeout") || retryErr.message.includes("Timeout")) {
           console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (domcontentloaded). Attempting capture anyway...`);
+          navigationSuccess = false; // Page might not be fully loaded
         } else {
           console.error(`[SCREENSHOT] Navigation failed: ${retryErr.message}`);
           throw new Error(`Navigation failed: ${retryErr.message}`);
@@ -167,9 +171,53 @@ async function captureDeviceView(browser, url, isMobile) {
       }
     }
 
-    // Wait for the page to settle - shorter wait for memory efficiency
+    // Dynamic wait time based on navigation success and site complexity
     console.log(`[SCREENSHOT] Waiting for page to settle before screenshot`);
-    await new Promise(res => setTimeout(res, isMobile ? 800 : 1000)); // Shorter for mobile
+
+    if (navigationSuccess) {
+      // Longer wait for successfully loaded heavy sites
+      await new Promise(res => setTimeout(res, isMobile ? 2000 : 3000));
+      console.log(`[SCREENSHOT] Extended wait completed for ${isMobile ? "mobile" : "desktop"}`);
+    } else {
+      // Even longer wait for potentially incomplete page loads
+      await new Promise(res => setTimeout(res, isMobile ? 3000 : 5000));
+      console.log(`[SCREENSHOT] Extra extended wait for incomplete page load`);
+    }
+
+    // Check if page has meaningful content before screenshot
+    const hasContent = await page.evaluate(() => {
+      const body = document.body;
+      const hasText = body.textContent && body.textContent.trim().length > 10;
+      const hasImages = document.images.length > 0;
+      const hasElements = document.querySelectorAll('*').length > 5;
+
+      return hasText || hasImages || hasElements;
+    });
+
+    if (!hasContent) {
+      console.warn(`[SCREENSHOT] Page appears to have minimal content, waiting longer...`);
+      // Extra wait for content to load
+      await new Promise(res => setTimeout(res, 3000));
+    }
+
+    console.log(`[SCREENSHOT] Content check passed, proceeding with screenshot`);
+
+    // For heavy sites, try to trigger any lazy-loaded content
+    if (!isMobile) {
+      try {
+        console.log(`[SCREENSHOT] Triggering scroll to load lazy content`);
+        await page.evaluate(() => {
+          // Scroll down a bit to trigger lazy loading
+          window.scrollTo(0, 200);
+          // Scroll back to top for screenshot
+          setTimeout(() => window.scrollTo(0, 0), 500);
+        });
+        // Wait for scroll-triggered content
+        await new Promise(res => setTimeout(res, 1500));
+      } catch (scrollErr) {
+        console.warn(`[SCREENSHOT] Scroll trigger failed:`, scrollErr.message);
+      }
+    }
 
     console.log(`[SCREENSHOT] Taking ${isMobile ? "mobile" : "desktop"} screenshot`);
     const image = await page.screenshot({
@@ -177,10 +225,34 @@ async function captureDeviceView(browser, url, isMobile) {
       fullPage: false, // Capture only the viewport area
       type: 'png', // PNG for lossless quality (no quality parameter needed)
       // Note: PNG is lossless, quality parameter not supported
-      timeout: 30000, // Reasonable timeout
+      timeout: 60000, // Increased timeout for heavy sites
     });
 
-    console.log(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} screenshot captured successfully (${image.length} bytes)`);
+    // Validate screenshot isn't blank/white
+    const imageSize = image.length;
+    console.log(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} screenshot captured successfully (${imageSize} bytes)`);
+
+    // Check if screenshot is suspiciously small (likely blank)
+    if (imageSize < 10000) { // Less than 10KB is likely blank
+      console.warn(`[SCREENSHOT] Screenshot suspiciously small (${imageSize} bytes), page may not have loaded properly`);
+
+      // Try one more wait and recapture for heavy sites
+      console.log(`[SCREENSHOT] Attempting recapture after additional wait`);
+      await new Promise(res => setTimeout(res, 3000));
+
+      const retryImage = await page.screenshot({
+        encoding: "base64",
+        fullPage: false,
+        type: 'png',
+        timeout: 30000,
+      });
+
+      if (retryImage.length > imageSize) {
+        console.log(`[SCREENSHOT] Recapture successful (${retryImage.length} bytes)`);
+        return `data:image/png;base64,${retryImage}`;
+      }
+    }
+
     return `data:image/png;base64,${image}`;
 
   } catch (err) {
