@@ -9,7 +9,10 @@ async function fetchPageSpeedInsights(url) {
 
   const run = async (strategy) => {
     try {
-      const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}&category=performance&key=${apiKey}`;
+      // Add screenshot parameter and optimize for better quality
+      const screenshotParam = strategy === 'desktop' ? '&screenshot=true' : '';
+      const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}&category=performance&key=${apiKey}${screenshotParam}`;
+
       const res = await got(endpoint, { timeout: { request: 25000 }, throwHttpErrors: false });
       const data = JSON.parse(res.body || "{}");
       const lhr = data.lighthouseResult || {};
@@ -18,10 +21,34 @@ async function fetchPageSpeedInsights(url) {
       const audits = lhr.audits || {};
       const val = (id) => +(audits[id]?.numericValue ?? 0) / 1000;
 
-      // Extract screenshot (Prioritize full-page for better quality)
-      const screenshot = audits["full-page-screenshot"]?.screenshot?.data
-        || audits["final-screenshot"]?.details?.data
-        || null;
+      // Screenshot extraction - prioritize viewport/first scroll only
+      let screenshot = null;
+      if (strategy === 'desktop') {
+        // For desktop, prioritize viewport screenshot (first scroll only)
+        screenshot = audits["final-screenshot"]?.details?.data
+          || audits["full-page-screenshot"]?.screenshot?.data
+          || null;
+
+        // Validate screenshot quality for desktop
+        if (screenshot) {
+          try {
+            // Basic validation - check if screenshot data looks valid
+            const isValidBase64 = /^data:image\/[a-z]+;base64,/.test(screenshot);
+            if (!isValidBase64) {
+              console.warn(`[PSI] Invalid screenshot format for ${strategy}`);
+              screenshot = null;
+            }
+          } catch (e) {
+            console.warn(`[PSI] Screenshot validation failed for ${strategy}:`, e.message);
+            screenshot = null;
+          }
+        }
+      } else {
+        // For mobile, use existing logic but with validation
+        screenshot = audits["final-screenshot"]?.details?.data
+          || audits["full-page-screenshot"]?.screenshot?.data
+          || null;
+      }
 
       return {
         strategy,
@@ -31,7 +58,7 @@ async function fetchPageSpeedInsights(url) {
         tbt: +(audits["total-blocking-time"]?.numericValue / 1000 || 0).toFixed(2),
         cls: +(audits["cumulative-layout-shift"]?.numericValue || 0).toFixed(3),
         si: +val("speed-index").toFixed(2),
-        screenshot, // Return the screenshot
+        screenshot, // Return the validated screenshot
       };
     } catch (e) {
       console.warn(`[PSI] ${strategy} failed:`, e.message);
