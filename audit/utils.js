@@ -14,8 +14,8 @@ let browserInstance = null;
 // Map to track URLs that are being processed and their ongoing audit promises
 const inProgress = new Map();
 
-// Limit concurrency to 5 concurrent tasks (adjust as needed)
-const limit = pLimit(5);
+// Limit concurrency to 1 concurrent task to save memory on 512MB instances
+const limit = pLimit(1);
 
 // ------------------ Reusable Puppeteer Browser ------------------
 async function getBrowser() {
@@ -26,11 +26,16 @@ async function getBrowser() {
 
   browserInstance = await puppeteer.launch({
     headless: true,
+    protocolTimeout: 120000, // Increase protocol timeout to 2 minutes
     executablePath: chromiumPath,  // Path to Chromium
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
+      "--disable-gpu", // Save memory
+      "--disable-extensions",
+      "--no-first-run",
+      "--no-zygote",
       "--ignore-certificate-errors",
       "--window-size=1366,768",
     ],
@@ -48,11 +53,14 @@ async function captureScreens(url) {
   try {
     const browser = await getBrowser();
 
-    // Capture desktop view
-    shots.desktop = await captureDeviceView(browser, url, false);  // false = desktop
+    // Capture desktop and mobile views in parallel to save time
+    const [desktop, mobile] = await Promise.all([
+      captureDeviceView(browser, url, false), // false = desktop
+      captureDeviceView(browser, url, true)   // true = mobile
+    ]);
 
-    // Capture mobile view
-    shots.mobile = await captureDeviceView(browser, url, true);   // true = mobile
+    shots.desktop = desktop;
+    shots.mobile = mobile;
 
   } catch (err) {
     console.error("[SCREENSHOT] General capture error:", err.message);
@@ -83,13 +91,13 @@ async function captureDeviceView(browser, url, isMobile) {
 
     // Ensure page has loaded before taking a screenshot
     try {
-      // Try strict network idle first
-      await page.goto(url, { waitUntil: "networkidle2", timeout: 50000 });
+      // Try strict network idle first (Reduced timeout for speed)
+      await page.goto(url, { waitUntil: "networkidle2", timeout: 15000 });
     } catch (navErr) {
       console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (networkidle2), retrying with domcontentloaded...`);
       // Fallback to domcontentloaded if networkidle2 times out
       try {
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 });
       } catch (retryErr) {
         // If it's just a timeout, we can still try to capture what's on the screen
         if (retryErr.message.includes("timeout") || retryErr.message.includes("Timeout")) {
@@ -106,6 +114,7 @@ async function captureDeviceView(browser, url, isMobile) {
     const image = await page.screenshot({
       encoding: "base64",
       fullPage: false, // Capture only the viewport area
+      timeout: 60000, // Increase screenshot timeout to 60 seconds
     });
 
     return `data:image/png;base64,${image}`;
