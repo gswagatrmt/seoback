@@ -64,10 +64,10 @@ async function getBrowser() {
 }
 
 // ------------------ Screenshot Capture ------------------
-// ------------------ Hybrid Screenshot Capture ------------------
-// PSI for mobile (fast, low RAM), Puppeteer for desktop (high quality, memory-optimized)
+// ------------------ Hybrid Screenshot Capture with Fallback ------------------
+// PSI for mobile (fast, low RAM), Puppeteer for desktop (high quality) with PSI fallback
 async function captureScreens(url, psiData) {
-  console.log(`[SCREENSHOT] Capturing screenshots: PSI mobile + Puppeteer desktop for ${url}`);
+  console.log(`[SCREENSHOT] Capturing screenshots: PSI mobile + Puppeteer desktop (with PSI fallback) for ${url}`);
 
   // Start with PSI mobile screenshot (if available)
   const shots = {
@@ -86,10 +86,25 @@ async function captureScreens(url, psiData) {
     console.log(`[SCREENSHOT] Launching memory-optimized Puppeteer for desktop screenshot`);
     const browser = await getBrowser();
     shots.desktop = await captureDeviceView(browser, url, false);  // false = desktop
-    console.log(`[SCREENSHOT] Desktop screenshot captured successfully`);
+
+    // Validate Puppeteer screenshot quality
+    if (shots.desktop) {
+      console.log(`[SCREENSHOT] Desktop screenshot captured successfully`);
+    } else {
+      console.warn(`[SCREENSHOT] Puppeteer returned null/empty desktop screenshot`);
+    }
   } catch (err) {
     console.error("[SCREENSHOT] Desktop capture error:", err.message);
-    console.log("[SCREENSHOT] Continuing without desktop screenshot");
+    shots.desktop = null;
+  }
+
+  // Fallback to PSI desktop screenshot if Puppeteer failed
+  if (!shots.desktop && psiData?.desktop?.screenshot) {
+    console.log(`[SCREENSHOT] Puppeteer failed, falling back to PSI desktop screenshot (lower quality but better than none)`);
+    shots.desktop = psiData.desktop.screenshot;
+    console.log(`[SCREENSHOT] PSI desktop fallback applied successfully`);
+  } else if (!shots.desktop) {
+    console.log(`[SCREENSHOT] No desktop screenshot available (both Puppeteer and PSI failed)`);
   }
 
   // If mobile screenshot not available from PSI, capture with Puppeteer as fallback
@@ -105,7 +120,13 @@ async function captureScreens(url, psiData) {
     }
   }
 
-  console.log(`[SCREENSHOT] Capture complete - Desktop: ${shots.desktop ? '✓' : '✗'}, Mobile: ${shots.mobile ? '✓' : '✗'}`);
+  // Log final status with fallback information
+  const desktopSource = shots.desktop ?
+    (psiData?.desktop?.screenshot === shots.desktop ? 'PSI fallback' : 'Puppeteer') : 'None';
+  const mobileSource = shots.mobile ? 'PSI' : 'None';
+
+  console.log(`[SCREENSHOT] Capture complete - Desktop: ${shots.desktop ? '✓ Available' : '✗ Missing'} (${desktopSource}), Mobile: ${shots.mobile ? '✓ Available' : '✗ Missing'} (${mobileSource})`);
+
   return shots;
 }
 
