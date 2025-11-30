@@ -53,14 +53,11 @@ async function captureScreens(url) {
   try {
     const browser = await getBrowser();
 
-    // Capture desktop and mobile views in parallel to save time
-    const [desktop, mobile] = await Promise.all([
-      captureDeviceView(browser, url, false), // false = desktop
-      captureDeviceView(browser, url, true)   // true = mobile
-    ]);
+    // Capture desktop view
+    shots.desktop = await captureDeviceView(browser, url, false);  // false = desktop
 
-    shots.desktop = desktop;
-    shots.mobile = mobile;
+    // Capture mobile view
+    shots.mobile = await captureDeviceView(browser, url, true);   // true = mobile
 
   } catch (err) {
     console.error("[SCREENSHOT] General capture error:", err.message);
