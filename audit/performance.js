@@ -7,49 +7,49 @@ async function fetchPageSpeedInsights(url) {
   const apiKey = process.env.PSI_API_KEY;
   if (!apiKey || !USE_PSI) return { mobile: { score: null }, desktop: { score: null } };
 
-  // Enhanced screenshot quality validation
-  function validateScreenshotQuality(screenshot, strategy) {
-    if (!screenshot) return { valid: false, quality: 0 };
+  // Basic screenshot validation (accept any valid screenshot)
+  function validateScreenshot(screenshot) {
+    if (!screenshot) return false;
 
     try {
       // Check if it's valid base64 image data
       const isValidBase64 = /^data:image\/[a-z]+;base64,/.test(screenshot);
-      if (!isValidBase64) return { valid: false, quality: 0 };
+      if (!isValidBase64) return false;
 
-      // Extract and analyze the base64 data
+      // Extract and check base64 data exists
       const base64Data = screenshot.split(',')[1];
-      if (!base64Data) return { valid: false, quality: 0 };
+      if (!base64Data || base64Data.length < 1000) return false; // Minimum reasonable size
+
+      return true;
+    } catch (e) {
+      console.warn(`[PSI] Screenshot validation failed:`, e.message);
+      return false;
+    }
+  }
+
+  // Quality scoring for choosing between multiple candidates (optional enhancement)
+  function scoreScreenshotQuality(screenshot, strategy) {
+    if (!screenshot) return 0;
+
+    try {
+      const base64Data = screenshot.split(',')[1];
+      if (!base64Data) return 0;
 
       const dataSize = base64Data.length;
       const decodedSize = (dataSize * 3) / 4; // Approximate decoded size
 
-      // Quality scoring based on size and format
       let quality = 1; // Base quality
 
       // Size-based quality (larger = potentially better quality)
       if (decodedSize > 500000) quality += 2; // > ~500KB decoded = high quality
       else if (decodedSize > 200000) quality += 1; // > ~200KB decoded = good quality
-      else if (decodedSize < 50000) quality -= 1; // < ~50KB decoded = potentially low quality
 
       // Check for PNG format (better quality than JPG for screenshots)
       if (screenshot.includes('data:image/png')) quality += 1;
 
-      // Desktop-specific quality checks
-      if (strategy === 'desktop') {
-        // Desktop screenshots should be reasonably large
-        if (decodedSize < 100000) quality -= 2; // Too small for desktop
-        // Could add more desktop-specific validations here
-      }
-
-      return {
-        valid: quality > 0,
-        quality: Math.max(0, quality),
-        size: decodedSize,
-        format: screenshot.split(';')[0].split('/')[1]
-      };
+      return Math.max(0, quality);
     } catch (e) {
-      console.warn(`[PSI] Screenshot quality validation failed for ${strategy}:`, e.message);
-      return { valid: false, quality: 0 };
+      return 0;
     }
   }
 
@@ -147,11 +147,13 @@ async function fetchPageSpeedInsights(url) {
 
         // Find the best quality screenshot from candidates
         for (const candidate of screenshotCandidates) {
-          const qualityCheck = validateScreenshotQuality(candidate.data, strategy);
-          if (qualityCheck.valid && qualityCheck.quality > bestQuality) {
-            bestScreenshot = candidate.data;
-            bestQuality = qualityCheck.quality;
-            console.log(`[PSI] Found better ${strategy} screenshot from ${candidate.source} (quality: ${qualityCheck.quality}, size: ${Math.round(qualityCheck.size/1024)}KB)`);
+          if (validateScreenshot(candidate.data)) {
+            const qualityScore = scoreScreenshotQuality(candidate.data, strategy);
+            if (qualityScore > bestQuality) {
+              bestScreenshot = candidate.data;
+              bestQuality = qualityScore;
+              console.log(`[PSI] Found better ${strategy} screenshot from ${candidate.source} (quality score: ${qualityScore})`);
+            }
           }
         }
 
@@ -162,8 +164,8 @@ async function fetchPageSpeedInsights(url) {
           quality: bestQuality
         });
 
-        // If we got a good quality screenshot on desktop, we can stop trying
-        if (strategy === 'desktop' && bestQuality >= 2) {
+        // If we got any valid screenshot, we can stop trying
+        if (bestScreenshot) {
           break;
         }
 
@@ -182,9 +184,9 @@ async function fetchPageSpeedInsights(url) {
       console.log(`[PSI] Desktop screenshot quality improvement: ${attempts.map(a => `attempt ${a.attempt}: ${a.success ? (a.screenshotFound ? `quality ${a.quality}` : 'no screenshot') : 'failed'}`).join(', ')}`);
     }
 
-    // Final validation and return
-    const finalQualityCheck = validateScreenshotQuality(bestScreenshot, strategy);
-    if (!finalQualityCheck.valid) {
+    // Final validation - ensure we return any valid screenshot
+    if (bestScreenshot && !validateScreenshot(bestScreenshot)) {
+      console.warn(`[PSI] Final screenshot validation failed for ${strategy}`);
       bestScreenshot = null;
     }
 
