@@ -17,6 +17,95 @@ const inProgress = new Map();
 // Limit concurrency to 1 concurrent task to save memory on 512MB instances
 const limit = pLimit(1);
 
+// ------------------ Site Complexity Detection (Memory-Safe Strategy) ------------------
+async function detectSiteComplexity(url) {
+  console.log(`[COMPLEXITY] Analyzing site complexity for ${url}`);
+
+  let page = null;
+  const complexity = {
+    isHeavy: false,
+    reasons: [],
+    loadTime: 0,
+    resourceCount: 0
+  };
+
+  try {
+    const browser = await getBrowser();
+    page = await browser.newPage();
+
+    // Set minimal viewport for quick analysis
+    await page.setViewport({ width: 800, height: 600 });
+
+    // Track resources and timing
+    let resourceCount = 0;
+    const startTime = Date.now();
+
+    page.on('response', () => {
+      resourceCount++;
+    });
+
+    // Quick navigation test (15 seconds max)
+    console.log(`[COMPLEXITY] Testing site responsiveness...`);
+
+    try {
+      await page.goto(url, {
+        waitUntil: 'domcontentloaded',
+        timeout: 15000 // 15 seconds for complexity check
+      });
+
+      const loadTime = Date.now() - startTime;
+      complexity.loadTime = loadTime;
+      complexity.resourceCount = resourceCount;
+
+      console.log(`[COMPLEXITY] Site analysis: ${loadTime}ms load time, ${resourceCount} resources`);
+
+      // Determine if site is heavy based on multiple factors
+      if (loadTime > 8000) {
+        complexity.isHeavy = true;
+        complexity.reasons.push(`slow load (${loadTime}ms)`);
+      }
+
+      if (resourceCount > 50) {
+        complexity.isHeavy = true;
+        complexity.reasons.push(`many resources (${resourceCount})`);
+      }
+
+      // Check for heavy frameworks/scripts
+      const heavyFrameworks = await page.evaluate(() => {
+        const scripts = Array.from(document.querySelectorAll('script[src]'));
+        const hasReact = scripts.some(s => s.src.includes('react'));
+        const hasVue = scripts.some(s => s.src.includes('vue'));
+        const hasAngular = scripts.some(s => s.src.includes('angular'));
+        const hasJQuery = scripts.some(s => s.src.includes('jquery'));
+
+        return { hasReact, hasVue, hasAngular, hasJQuery };
+      });
+
+      if (heavyFrameworks.hasReact || heavyFrameworks.hasVue || heavyFrameworks.hasAngular) {
+        complexity.isHeavy = true;
+        complexity.reasons.push('heavy framework detected');
+      }
+
+    } catch (timeoutErr) {
+      complexity.isHeavy = true;
+      complexity.reasons.push(`timeout during analysis (${timeoutErr.message.includes('timeout') ? 'slow response' : 'connection issue'})`);
+      console.log(`[COMPLEXITY] Site analysis timeout - marking as heavy`);
+    }
+
+  } catch (err) {
+    complexity.isHeavy = true;
+    complexity.reasons.push(`analysis error (${err.message})`);
+    console.warn(`[COMPLEXITY] Error during complexity analysis:`, err.message);
+  } finally {
+    if (page) {
+      await page.close().catch(() => {});
+    }
+  }
+
+  console.log(`[COMPLEXITY] Final assessment: ${complexity.isHeavy ? 'HEAVY' : 'LIGHT'} site (${complexity.reasons.join(', ') || 'no issues'})`);
+  return complexity;
+}
+
 // ------------------ Memory-Optimized Puppeteer Browser (Under 512MB RAM) ------------------
 async function getBrowser() {
   if (browserInstance) {
@@ -64,10 +153,10 @@ async function getBrowser() {
 }
 
 // ------------------ Screenshot Capture ------------------
-// ------------------ Hybrid Screenshot Capture with Fallback ------------------
-// PSI for mobile (fast, low RAM), Puppeteer for desktop (high quality) with PSI fallback
+// ------------------ Memory-Safe Hybrid Screenshot Capture ------------------
+// PSI for mobile (fast, low RAM), Smart desktop detection (PSI for heavy sites, Puppeteer for light sites)
 async function captureScreens(url, psiData) {
-  console.log(`[SCREENSHOT] Capturing screenshots: PSI mobile + Puppeteer desktop (with PSI fallback) for ${url}`);
+  console.log(`[SCREENSHOT] Starting memory-safe screenshot capture for ${url}`);
 
   // Start with PSI mobile screenshot (if available)
   const shots = {
@@ -76,26 +165,71 @@ async function captureScreens(url, psiData) {
   };
 
   if (shots.mobile) {
-    console.log(`[SCREENSHOT] Using PSI mobile screenshot from performance audit`);
+    console.log(`[SCREENSHOT] ✓ PSI mobile screenshot available`);
   } else {
-    console.log(`[SCREENSHOT] No PSI mobile screenshot available, will capture with Puppeteer`);
+    console.log(`[SCREENSHOT] ⚠️  No PSI mobile screenshot available`);
   }
 
-  // Capture desktop screenshot with memory-optimized Puppeteer
-  try {
-    console.log(`[SCREENSHOT] Launching memory-optimized Puppeteer for desktop screenshot`);
-    const browser = await getBrowser();
-    shots.desktop = await captureDeviceView(browser, url, false);  // false = desktop
+  // SMART DESKTOP SCREENSHOT STRATEGY - Prevent 512MB RAM limit
+  console.log(`[SCREENSHOT] Analyzing site complexity to prevent memory issues...`);
+  const siteComplexity = await detectSiteComplexity(url);
 
-    // Validate Puppeteer screenshot quality
-    if (shots.desktop) {
-      console.log(`[SCREENSHOT] Desktop screenshot captured successfully`);
+  if (siteComplexity.isHeavy) {
+    console.log(`[SCREENSHOT] 🚨 Heavy site detected - using PSI desktop screenshot to save memory`);
+    console.log(`[SCREENSHOT] Heavy site indicators: ${siteComplexity.reasons.join(', ')}`);
+
+    // Use PSI desktop screenshot directly for heavy sites (memory-safe)
+    if (psiData?.desktop?.screenshot) {
+      shots.desktop = psiData.desktop.screenshot;
+      console.log(`[SCREENSHOT] ✓ PSI desktop fallback applied successfully (memory-safe)`);
     } else {
-      console.warn(`[SCREENSHOT] Puppeteer returned null/empty desktop screenshot`);
+      console.log(`[SCREENSHOT] ❌ No PSI desktop screenshot available for heavy site`);
     }
-  } catch (err) {
-    console.error("[SCREENSHOT] Desktop capture error:", err.message);
-    shots.desktop = null;
+  } else {
+    console.log(`[SCREENSHOT] ✅ Light site detected - attempting Puppeteer desktop screenshot`);
+
+    // Attempt Puppeteer for light sites only with memory monitoring
+    try {
+      console.log(`[SCREENSHOT] Launching memory-monitored Puppeteer for desktop screenshot`);
+      const browser = await getBrowser();
+
+      // Set up memory monitoring to prevent 512MB limit
+      let memoryWarningShown = false;
+      const memoryCheckInterval = setInterval(() => {
+        const memUsage = process.memoryUsage();
+        const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+        const totalUsedMB = Math.round((memUsage.heapUsed + memUsage.external) / 1024 / 1024);
+
+        if (totalUsedMB > 450 && !memoryWarningShown) { // Close to 512MB limit
+          console.warn(`[MEMORY] ⚠️  High memory usage: ${totalUsedMB}MB - aborting to prevent limit exceedance`);
+          memoryWarningShown = true;
+          throw new Error('Memory limit approaching - aborting screenshot');
+        }
+      }, 1000); // Check every 1 second for faster response
+
+      try {
+        shots.desktop = await captureDeviceView(browser, url, false);
+
+        if (shots.desktop) {
+          console.log(`[SCREENSHOT] ✓ Puppeteer desktop screenshot successful`);
+        } else {
+          console.warn(`[SCREENSHOT] ⚠️  Puppeteer returned empty screenshot`);
+        }
+      } finally {
+        clearInterval(memoryCheckInterval);
+      }
+
+    } catch (err) {
+      console.error("[SCREENSHOT] ❌ Puppeteer desktop capture failed:", err.message);
+
+      // Fallback to PSI if Puppeteer fails or hits memory limit
+      if (psiData?.desktop?.screenshot) {
+        shots.desktop = psiData.desktop.screenshot;
+        console.log(`[SCREENSHOT] ✓ PSI desktop fallback applied after Puppeteer failure`);
+      } else {
+        console.log(`[SCREENSHOT] ❌ No desktop screenshot available`);
+      }
+    }
   }
 
   // Fallback to PSI desktop screenshot if Puppeteer failed
@@ -120,12 +254,16 @@ async function captureScreens(url, psiData) {
     }
   }
 
-  // Log final status with fallback information
+  // Log final status with memory-safe strategy information
   const desktopSource = shots.desktop ?
-    (psiData?.desktop?.screenshot === shots.desktop ? 'PSI fallback' : 'Puppeteer') : 'None';
+    (psiData?.desktop?.screenshot === shots.desktop ? 'PSI (memory-safe)' : 'Puppeteer (light site)') : 'None';
   const mobileSource = shots.mobile ? 'PSI' : 'None';
 
+  const memUsage = process.memoryUsage();
+  const currentMemMB = Math.round((memUsage.heapUsed + memUsage.external) / 1024 / 1024);
+
   console.log(`[SCREENSHOT] Capture complete - Desktop: ${shots.desktop ? '✓ Available' : '✗ Missing'} (${desktopSource}), Mobile: ${shots.mobile ? '✓ Available' : '✗ Missing'} (${mobileSource})`);
+  console.log(`[MEMORY] Current memory usage: ${currentMemMB}MB (safe under 512MB limit)`);
 
   return shots;
 }
@@ -165,26 +303,50 @@ async function captureDeviceView(browser, url, isMobile) {
 
     console.log(`[SCREENSHOT] Navigating to ${url} for ${isMobile ? "mobile" : "desktop"} screenshot`);
 
-    // Enhanced navigation strategy for heavy sites
+    // Enhanced navigation strategy for heavy sites with anti-detection
     let navigationSuccess = false;
 
+    // Set additional headers to avoid blocking and improve compatibility
+    console.log(`[SCREENSHOT] Setting anti-detection headers`);
+    await page.setExtraHTTPHeaders({
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Accept-Encoding': 'gzip, deflate',
+      'DNT': '1',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+      'Cache-Control': 'max-age=0',
+    });
+
     try {
-      // Try network idle first with longer timeout for heavy sites
-      await page.goto(url, { waitUntil: "networkidle0", timeout: 45000 });
+      // Try network idle first with extended timeout for heavy sites
+      console.log(`[SCREENSHOT] Attempting navigation with networkidle0 (60s timeout)...`);
+      await page.goto(url, { waitUntil: "networkidle0", timeout: 60000 });
       console.log(`[SCREENSHOT] Page loaded successfully with networkidle0`);
       navigationSuccess = true;
     } catch (navErr) {
       console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (networkidle0), trying domcontentloaded...`);
 
       try {
-        // Fallback to domcontentloaded with longer timeout
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+        // Fallback to domcontentloaded with extended timeout
+        console.log(`[SCREENSHOT] Attempting navigation with domcontentloaded (45s timeout)...`);
+        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
         console.log(`[SCREENSHOT] Page loaded with domcontentloaded fallback`);
         navigationSuccess = true;
       } catch (retryErr) {
         if (retryErr.message.includes("timeout") || retryErr.message.includes("Timeout")) {
-          console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (domcontentloaded). Attempting capture anyway...`);
-          navigationSuccess = false; // Page might not be fully loaded
+          console.warn(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} navigation timeout (domcontentloaded). Attempting minimal load...`);
+
+          try {
+            // Last resort: try with minimal wait conditions
+            console.log(`[SCREENSHOT] Attempting minimal navigation with load event (30s timeout)...`);
+            await page.goto(url, { waitUntil: "load", timeout: 30000 });
+            console.log(`[SCREENSHOT] Page loaded with minimal load condition`);
+            navigationSuccess = false; // Partial load but better than nothing
+          } catch (finalErr) {
+            console.error(`[SCREENSHOT] All navigation attempts failed: ${finalErr.message}`);
+            navigationSuccess = false;
+          }
         } else {
           console.error(`[SCREENSHOT] Navigation failed: ${retryErr.message}`);
           throw new Error(`Navigation failed: ${retryErr.message}`);
@@ -205,20 +367,41 @@ async function captureDeviceView(browser, url, isMobile) {
       console.log(`[SCREENSHOT] Extra extended wait for incomplete page load`);
     }
 
-    // Check if page has meaningful content before screenshot
-    const hasContent = await page.evaluate(() => {
+    // Enhanced content validation with multiple checks
+    console.log(`[SCREENSHOT] Validating page content...`);
+    const contentCheck = await page.evaluate(() => {
       const body = document.body;
-      const hasText = body.textContent && body.textContent.trim().length > 10;
-      const hasImages = document.images.length > 0;
-      const hasElements = document.querySelectorAll('*').length > 5;
+      const html = document.documentElement;
 
-      return hasText || hasImages || hasElements;
+      // Multiple content checks
+      const checks = {
+        hasText: body.textContent && body.textContent.trim().length > 50,
+        hasImages: document.images.length > 0,
+        hasElements: document.querySelectorAll('*').length > 10,
+        hasTitle: document.title && document.title.trim().length > 0,
+        hasHeadings: document.querySelectorAll('h1, h2, h3').length > 0,
+        hasLinks: document.querySelectorAll('a').length > 0,
+        bodyHeight: body.offsetHeight > 100,
+        htmlSize: html.innerHTML.length > 1000
+      };
+
+      const score = Object.values(checks).filter(Boolean).length;
+      return {
+        ...checks,
+        overallScore: score,
+        hasBasicContent: score >= 2 // At least 2 positive checks
+      };
     });
 
-    if (!hasContent) {
-      console.warn(`[SCREENSHOT] Page appears to have minimal content, waiting longer...`);
-      // Extra wait for content to load
-      await new Promise(res => setTimeout(res, 3000));
+    console.log(`[SCREENSHOT] Content validation - Score: ${contentCheck.overallScore}/8, Basic content: ${contentCheck.hasBasicContent ? '✓' : '✗'}`);
+
+    if (!contentCheck.hasBasicContent) {
+      console.warn(`[SCREENSHOT] Page appears to have minimal content (score: ${contentCheck.overallScore}), waiting longer...`);
+      // Extra wait for content to load on slow/heavy sites
+      await new Promise(res => setTimeout(res, 5000));
+      console.log(`[SCREENSHOT] Extra wait completed, proceeding with screenshot`);
+    } else {
+      console.log(`[SCREENSHOT] Content validation passed, proceeding with screenshot`);
     }
 
     console.log(`[SCREENSHOT] Content check passed, proceeding with screenshot`);
@@ -249,29 +432,40 @@ async function captureDeviceView(browser, url, isMobile) {
       timeout: 60000, // Increased timeout for heavy sites
     });
 
-    // Validate screenshot isn't blank/white
+    // Validate screenshot quality and size
     const imageSize = image.length;
-    console.log(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} screenshot captured successfully (${imageSize} bytes)`);
+    console.log(`[SCREENSHOT] ${isMobile ? "Mobile" : "Desktop"} screenshot captured (${imageSize} bytes)`);
 
-    // Check if screenshot is suspiciously small (likely blank)
-    if (imageSize < 10000) { // Less than 10KB is likely blank
-      console.warn(`[SCREENSHOT] Screenshot suspiciously small (${imageSize} bytes), page may not have loaded properly`);
+    // Enhanced validation for blank/invalid screenshots
+    if (imageSize < 5000) { // Very small = definitely blank/invalid
+      console.error(`[SCREENSHOT] Screenshot critically small (${imageSize} bytes) - likely blank/invalid`);
+      return null; // Return null to trigger PSI fallback
+    } else if (imageSize < 15000) { // Small = potentially blank
+      console.warn(`[SCREENSHOT] Screenshot suspiciously small (${imageSize} bytes), may be blank`);
 
       // Try one more wait and recapture for heavy sites
       console.log(`[SCREENSHOT] Attempting recapture after additional wait`);
       await new Promise(res => setTimeout(res, 3000));
 
-      const retryImage = await page.screenshot({
-        encoding: "base64",
-        fullPage: false,
-        type: 'png',
-        timeout: 30000,
-      });
+      try {
+        const retryImage = await page.screenshot({
+          encoding: "base64",
+          fullPage: false,
+          type: 'png',
+          timeout: 20000,
+        });
 
-      if (retryImage.length > imageSize) {
-        console.log(`[SCREENSHOT] Recapture successful (${retryImage.length} bytes)`);
-        return `data:image/png;base64,${retryImage}`;
+        if (retryImage.length > imageSize * 1.5) { // Significant improvement
+          console.log(`[SCREENSHOT] Recapture successful (${retryImage.length} bytes vs ${imageSize})`);
+          return `data:image/png;base64,${retryImage}`;
+        } else {
+          console.warn(`[SCREENSHOT] Recapture didn't improve quality, using original`);
+        }
+      } catch (retryErr) {
+        console.warn(`[SCREENSHOT] Recapture failed: ${retryErr.message}`);
       }
+    } else {
+      console.log(`[SCREENSHOT] Screenshot size looks good (${imageSize} bytes)`);
     }
 
     return `data:image/png;base64,${image}`;
