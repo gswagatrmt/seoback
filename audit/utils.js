@@ -130,19 +130,16 @@ async function captureDeviceView(browser, url, isMobile) {
     await page.setViewport(viewport);
     await page.setUserAgent(userAgent);
 
-    // Memory optimization: Block resource-heavy content for screenshots
-    if (!isMobile) { // Only for desktop to save memory
-      console.log(`[SCREENSHOT] Setting up resource blocking for memory optimization`);
+    // Selective resource blocking for authentic desktop screenshots
+    if (!isMobile) { // Only for desktop screenshots
+      console.log(`[SCREENSHOT] Setting up complete resource loading - allowing fonts/images/videos for authentic desktop view`);
       await page.setRequestInterception(true);
       page.on('request', (request) => {
         const resourceType = request.resourceType();
-        // Block memory-intensive resources but allow essential ones
-        if (['image', 'media', 'font'].includes(resourceType)) {
-          console.log(`[SCREENSHOT] Blocking ${resourceType} resource to save memory`);
-          request.abort();
-        } else {
-          request.continue();
-        }
+        // Allow all resources for most authentic desktop screenshot (including videos)
+        // Note: This may increase RAM usage but provides the most accurate representation
+        console.log(`[SCREENSHOT] Allowing ${resourceType} resource for complete authentic rendering`);
+        request.continue();
       });
     }
 
@@ -178,8 +175,8 @@ async function captureDeviceView(browser, url, isMobile) {
     const image = await page.screenshot({
       encoding: "base64",
       fullPage: false, // Capture only the viewport area
-      type: 'png',
-      quality: 85, // Good quality but memory-efficient
+      type: 'png', // PNG for lossless quality (no quality parameter needed)
+      // Note: PNG is lossless, quality parameter not supported
       timeout: 30000, // Reasonable timeout
     });
 
