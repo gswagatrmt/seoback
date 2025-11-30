@@ -18,6 +18,9 @@ async function fetchPageSpeedInsights(url) {
       const audits = lhr.audits || {};
       const val = (id) => +(audits[id]?.numericValue ?? 0) / 1000;
 
+      // Extract screenshot
+      const screenshot = audits["final-screenshot"]?.details?.data || null;
+
       return {
         strategy,
         score: perfScore,
@@ -26,6 +29,7 @@ async function fetchPageSpeedInsights(url) {
         tbt: +(audits["total-blocking-time"]?.numericValue / 1000 || 0).toFixed(2),
         cls: +(audits["cumulative-layout-shift"]?.numericValue || 0).toFixed(3),
         si: +val("speed-index").toFixed(2),
+        screenshot, // Return the screenshot
       };
     } catch (e) {
       console.warn(`[PSI] ${strategy} failed:`, e.message);
