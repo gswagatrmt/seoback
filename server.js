@@ -98,6 +98,13 @@ app.post("/api/audit/pdf", async (req, res) => {
   }
 });
 
+// --- New /api/ping route ---
+// A simple ping endpoint that can be hit every 5 minutes by uptimerobot
+app.get("/api/ping", (req, res) => {
+  console.log("[PING] Received ping request.");
+  res.status(200).json({ ok: true, message: "Server is alive" });
+});
+
 // Set up the backend server to listen on the specified port (default to 8080)
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`SEO Audit running on :${PORT}`));
